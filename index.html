@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wheat Water Use">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<title>Spring Wheat Water Use</title>
+<style>
+:root {
+  --gold: #F1B300;
+  --gold-deep: #C99400;
+  --gold-soft: #FBF3DC;
+  --black: #0A0A0A;
+  --ink: #1A1814;
+  --ink2: #4A4640;
+  --ink3: #757069;
+  --paper: #F5F4F2;
+  --paper2: #EAE8E3;
+  --white: #FFFFFF;
+  --line: rgba(26,24,20,0.12);
+  --green: #3B6D11;
+  --green-soft: #E3EDD8;
+  --rain: #3A7CA5;
+  --radius: 14px;
+  --radius-lg: 18px;
+  --shadow: 0 4px 20px rgba(0,0,0,0.10);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased; min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom); overscroll-behavior-y: contain;
+}
+
+/* ── HEADER ── */
+header {
+  position: sticky; top: 0; z-index: 1000; background: var(--black);
+  padding: calc(env(safe-area-inset-top) + 13px) 16px 13px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3); border-bottom: 3px solid var(--gold);
+}
+.brand {
+  font-family: 'Public Sans', sans-serif; font-weight: 900; font-size: 16px; color: #fff;
+  letter-spacing: -0.01em; cursor: pointer; line-height: 1.1; flex: 1;
+  background: none; border: none; text-align: left; padding: 0;
+}
+.brand em { color: var(--gold); font-style: normal; }
+.brand .sub { display: block; font-size: 9.5px; font-weight: 600; color: rgba(255,255,255,0.55); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
+.nav-guide {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff;
+  border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  white-space: nowrap; font-family: 'Public Sans', sans-serif;
+}
+.nav-guide:active { background: rgba(255,255,255,0.2); }
+
+/* ── BACK BAR ── */
+.back-bar { position: sticky; top: 0; z-index: 900; background: var(--paper); padding: 10px 16px; border-bottom: 1px solid var(--line); display: none; }
+.back-bar.show { display: block; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--white);
+  border: 2px solid var(--ink); color: var(--ink); border-radius: 10px;
+  padding: 9px 18px 9px 14px; font-size: 15px; font-weight: 700; cursor: pointer;
+  font-family: 'Public Sans', sans-serif; box-shadow: var(--shadow-sm);
+}
+.back-btn:active { background: var(--paper2); }
+.back-btn .arr { font-size: 20px; line-height: 1; }
+
+/* ── MAIN ── */
+main { width: 100%; max-width: 900px; margin: 0 auto; padding-bottom: 90px; }
+main.wide { max-width: 1180px; }
+@media (min-width: 700px) { main { padding-left: 24px; padding-right: 24px; } }
+
+/* ── HERO ── */
+.hero { background: var(--black); color: #fff; padding: 34px 20px 30px; position: relative; overflow: hidden; }
+@media (min-width: 700px) { .hero { padding: 56px 48px 48px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); } }
+.hero::after { content: ""; position: absolute; top: 0; right: 0; width: 45%; height: 100%; background: radial-gradient(ellipse at top right, rgba(241,179,0,0.14), transparent 70%); pointer-events: none; }
+.hero-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); margin-bottom: 14px; position: relative; }
+.hero h1 { font-weight: 900; font-size: 30px; line-height: 1.08; letter-spacing: -0.025em; margin-bottom: 16px; position: relative; }
+@media (min-width: 700px) { .hero h1 { font-size: 42px; } }
+.hero h1 span { color: var(--gold); }
+.hero-desc { font-family: 'Noto Serif', serif; font-size: 15px; line-height: 1.65; color: rgba(255,255,255,0.85); margin-bottom: 24px; position: relative; max-width: 620px; }
+@media (min-width: 700px) { .hero-desc { font-size: 17px; } }
+.hero-stats { display: flex; border-top: 1px solid rgba(255,255,255,0.18); padding-top: 18px; position: relative; max-width: 620px; }
+.hero-stat { flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.15); padding: 0 6px; }
+.hero-stat:last-child { border-right: none; }
+.hero-stat .n { font-weight: 900; font-size: 24px; color: var(--gold); line-height: 1; }
+.hero-stat .l { font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* ── STEPS ── */
+.steps { padding: 0 16px; display: grid; gap: 10px; }
+@media (min-width: 700px) { .steps { padding: 0; grid-template-columns: repeat(3, 1fr); gap: 14px; } }
+.step { background: var(--white); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; gap: 14px; align-items: flex-start; box-shadow: var(--shadow-sm); }
+.step .num { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--black); color: var(--gold); font-weight: 900; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+.step strong { display: block; font-size: 15px; font-weight: 800; margin-bottom: 2px; }
+.step span { font-family: 'Noto Serif', serif; font-size: 13.5px; color: var(--ink2); line-height: 1.5; }
+
+.cta-row { padding: 18px 16px 0; display: grid; gap: 10px; }
+@media (min-width: 700px) { .cta-row { padding: 22px 0 0; grid-template-columns: 1fr 1fr; } }
+.btn-primary, .btn-secondary {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  border-radius: 12px; padding: 15px 18px; font-size: 16px; font-weight: 800; cursor: pointer;
+  font-family: 'Public Sans', sans-serif; text-decoration: none;
+}
+.btn-primary { background: var(--black); color: #fff; border: 2px solid var(--black); box-shadow: var(--shadow); }
+.btn-primary .g { color: var(--gold); }
+.btn-primary:active { background: #2a2a2a; }
+.btn-secondary { background: var(--white); color: var(--ink); border: 2px solid var(--ink); }
+.btn-secondary:active { background: var(--paper2); }
+.btn-secondary .sm { font-weight: 600; color: var(--ink3); font-size: 13px; }
+
+/* ── SECTION LABEL ── */
+.section-label { font-size: 11px; font-weight: 800; letter-spacing: 0.10em; text-transform: uppercase; color: var(--ink3); margin: 24px 20px 12px; }
+@media (min-width: 700px) { .section-label { margin: 28px 4px 14px; } }
+
+/* ── LISTS ── */
+.saved-list { padding: 0 16px; }
+@media (min-width: 700px) { .saved-list { padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+.field-row, .station-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--white);
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; cursor: pointer; box-shadow: var(--shadow-sm);
+}
+@media (min-width: 700px) { .field-row, .station-row { margin-bottom: 0; } }
+.field-row { border-left: 5px solid var(--gold); }
+.field-row:active, .station-row:active { background: var(--paper2); }
+.field-row .fname { font-size: 16px; font-weight: 800; color: var(--ink); }
+.field-row .fmeta { font-family: 'Noto Serif', serif; font-size: 13px; color: var(--ink3); margin-top: 2px; }
+.station-row .sname { font-size: 16px; font-weight: 700; color: var(--ink); flex: 1; }
+.station-row .sreg { font-size: 12px; color: var(--ink3); font-weight: 600; }
+.chev { font-size: 22px; color: var(--black); font-weight: 300; }
+.empty-note { text-align: center; padding: 22px 16px; color: var(--ink3); font-size: 14.5px; font-family: 'Noto Serif', serif; line-height: 1.55; }
+.empty-card { margin: 0 16px; background: var(--white); border: 1px dashed rgba(26,24,20,0.25); border-radius: 12px; }
+@media (min-width: 700px) { .empty-card { margin: 0; } }
+
+/* ── PAGE HEAD ── */
+.page-head { background: var(--black); color: #fff; padding: 22px 20px 20px; }
+@media (min-width: 700px) { .page-head { border-radius: var(--radius-lg); margin-top: 16px; } }
+.page-head h2 { font-weight: 900; font-size: 26px; letter-spacing: -0.01em; margin-bottom: 4px; }
+.page-head h2 .accent-dot { color: var(--gold); }
+.page-head p { font-family: 'Noto Serif', serif; font-size: 13.5px; color: rgba(255,255,255,0.72); line-height: 1.5; }
+
+.view-toggle { display: flex; margin: 16px 16px 0; background: var(--paper2); border-radius: 11px; padding: 4px; }
+@media (min-width: 700px) { .view-toggle { margin: 16px 0 0; max-width: 360px; } }
+.view-toggle button {
+  flex: 1; border: none; background: none; padding: 10px 8px; font-size: 14px; font-weight: 700; color: var(--ink3);
+  cursor: pointer; border-radius: 8px; font-family: 'Public Sans', sans-serif;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.view-toggle button.active { background: var(--white); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+.search-wrap { padding: 14px 16px 4px; }
+@media (min-width: 700px) { .search-wrap { padding: 14px 0 4px; } }
+.search-wrap input { width: 100%; border: 2px solid var(--line); background: var(--white); border-radius: 12px; padding: 13px 16px; font-size: 16px; font-family: 'Public Sans', sans-serif; color: var(--ink); outline: none; }
+.search-wrap input:focus { border-color: var(--gold-deep); }
+.station-list { padding: 6px 16px; }
+@media (min-width: 700px) { .station-list { padding: 6px 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+.region-label { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-deep); margin: 14px 2px 8px; grid-column: 1 / -1; }
+
+#map { height: 470px; margin: 14px 16px 0; border-radius: var(--radius); border: 1px solid var(--line); z-index: 1; }
+@media (min-width: 700px) { #map { margin: 14px 0 0; height: 560px; } }
+.leaflet-popup-content { font-family: 'Public Sans', sans-serif; }
+.map-popup-name { font-weight: 800; font-size: 15px; margin-bottom: 2px; color: var(--ink); }
+.map-popup-reg { font-size: 12px; color: var(--ink3); margin-bottom: 8px; }
+.map-popup-btn { display: block; width: 100%; background: var(--black); color: #fff; border: none; border-radius: 8px; padding: 10px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'Public Sans', sans-serif; }
+.map-popup-btn .g { color: var(--gold); }
+
+/* ── FORM ── */
+.form-body { padding: 16px; }
+@media (min-width: 700px) { .form-body { padding: 20px 0; max-width: 560px; } }
+.form-group { margin-bottom: 18px; }
+.form-label { display: block; font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink3); margin-bottom: 8px; }
+.form-help { font-family: 'Noto Serif', serif; font-size: 13px; color: var(--ink3); margin-top: 6px; line-height: 1.5; }
+.form-input, .form-select {
+  width: 100%; font-family: 'Public Sans', sans-serif; font-size: 18px; font-weight: 700; color: var(--ink);
+  background: var(--white); border: 2px solid var(--ink); border-radius: 12px; padding: 14px 16px;
+  box-shadow: var(--shadow-sm); -webkit-appearance: none; appearance: none; min-height: 56px;
+}
+.form-select {
+  padding-right: 48px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230A0A0A' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--gold-deep); }
+.station-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--white); border: 1px solid var(--line); border-left: 5px solid var(--gold); border-radius: 12px; padding: 14px 16px; }
+.station-chip strong { font-size: 17px; font-weight: 800; }
+.station-chip span { font-size: 13px; color: var(--ink3); }
+.station-chip a { color: var(--gold-deep); font-weight: 700; font-size: 14px; cursor: pointer; text-decoration: underline; }
+.form-actions { display: grid; gap: 10px; margin-top: 6px; }
+.btn-danger { background: none; border: none; color: #A3341F; font-weight: 700; font-size: 14px; text-decoration: underline; cursor: pointer; padding: 10px; font-family: 'Public Sans', sans-serif; }
+
+/* ── DASHBOARD ── */
+.station-hero { background: var(--black); color: #fff; padding: 20px 20px 18px; }
+@media (min-width: 700px) { .station-hero { border-radius: var(--radius-lg); margin-top: 16px; padding: 24px 28px 22px; } }
+.station-hero .stag { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+.station-hero h1 { font-weight: 900; font-size: 26px; line-height: 1.12; margin-bottom: 10px; letter-spacing: -0.015em; }
+.date-badge { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: rgba(255,255,255,0.9); font-family: 'Noto Serif', serif; }
+.date-badge strong { color: var(--gold); font-weight: 700; }
+.detail-body { padding: 16px; }
+@media (min-width: 700px) { .detail-body { padding: 18px 0; } }
+
+.stage-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; background: var(--white); border: 1px solid var(--line); border-left: 5px solid var(--green); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+.stage-pill { background: var(--green); color: #fff; font-weight: 800; font-size: 13px; border-radius: 999px; padding: 5px 12px; letter-spacing: 0.02em; }
+.stage-pill.done { background: var(--ink2); }
+.stage-strip .kv { font-size: 13px; color: var(--ink2); }
+.stage-strip .kv b { color: var(--ink); font-weight: 800; font-size: 15px; }
+
+.totals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 14px; }
+@media (min-width: 1000px) { .totals-grid { grid-template-columns: repeat(4, 1fr); } }
+.tot-box { background: var(--white); padding: 14px 15px; }
+.tot-box.hl { background: var(--gold-soft); }
+.tot-box.fc { background: var(--green-soft); }
+.tot-num { font-size: 30px; font-weight: 900; color: var(--black); line-height: 1; letter-spacing: -0.02em; }
+.tot-num .unit { font-size: 13px; font-weight: 600; color: var(--ink3); margin-left: 3px; }
+.tot-lbl { font-size: 13px; font-weight: 800; color: var(--ink); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.tot-def { font-family: 'Noto Serif', serif; font-size: 12px; color: var(--ink3); margin-top: 3px; line-height: 1.4; }
+.beta { font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; background: var(--green); color: #fff; border-radius: 5px; padding: 2px 5px; }
+
+.dash-grid { display: grid; gap: 14px; }
+@media (min-width: 1000px) { .dash-grid { grid-template-columns: 1fr 1fr; } .dash-grid .span2 { grid-column: 1 / -1; } }
+.card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.card-head { padding: 15px 16px 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.card-head h3 { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.card-head .csub { font-family: 'Noto Serif', serif; font-size: 12.5px; color: var(--ink3); margin-top: 2px; line-height: 1.4; }
+.card-body { padding: 0 12px 12px; }
+.chart-box { width: 100%; }
+.chart-box svg { display: block; width: 100%; height: auto; font-family: 'Public Sans', sans-serif; }
+.readout { font-size: 13px; color: var(--ink2); min-height: 20px; padding: 2px 4px 6px; font-weight: 600; }
+.readout b { color: var(--ink); }
+.chart-legend { display: flex; gap: 8px 14px; padding: 10px 4px 2px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink2); font-weight: 600; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.legend-line { width: 18px; height: 0; border-top: 3px solid var(--ink); flex-shrink: 0; }
+.legend-line.dash { border-top: 2px dashed #8C7A55; }
+.legend-line.fc { border-top: 3px dashed var(--green); }
+
+.method-toggle { margin: 0 0 8px; }
+@media (min-width: 700px) { .method-toggle { max-width: 460px; } }
+.method-note { font-family: 'Noto Serif', serif; font-size: 12.5px; color: var(--ink3); margin: 0 2px 14px; line-height: 1.5; }
+.method-wrap .view-toggle { margin: 0 0 8px; }
+.top-row { display: block; }
+@media (min-width: 1000px) {
+  .top-row { display: grid; grid-template-columns: 460px 1fr; gap: 16px; align-items: start; }
+  .top-row .stage-strip { margin-bottom: 0; }
+}
+
+.info-callout { background: var(--white); border: 1px solid var(--line); border-left: 5px solid var(--gold); border-radius: 12px; padding: 14px 16px; margin-top: 14px; font-family: 'Noto Serif', serif; font-size: 14px; line-height: 1.6; color: var(--ink2); }
+.info-callout strong { color: var(--ink); font-weight: 700; }
+.warn-callout { border-left-color: #A3341F; }
+.season-switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 12px; font-size: 13px; color: rgba(255,255,255,0.85); }
+.season-switch select { font: inherit; font-weight: 700; background: #fff; color: var(--ink); border: 0; border-radius: 8px; padding: 6px 10px; min-height: 36px; }
+.season-switch .ss-note { font-size: 12px; color: rgba(255,255,255,0.6); }
+.day-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.day-table th { position: sticky; top: 0; background: var(--white); text-align: right; font-size: 11px; font-weight: 800; color: var(--ink3); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.day-table td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.day-table th:first-child, .day-table td:first-child { text-align: left; }
+.day-table tr.fc td { color: var(--green); font-style: italic; }
+.action-row { display: grid; gap: 10px; margin-top: 18px; }
+@media (min-width: 700px) { .action-row { grid-template-columns: repeat(3, 1fr); } }
+
+/* ── GUIDE ── */
+.guide-body { padding: 20px 18px; }
+@media (min-width: 700px) { .guide-body { padding: 28px 4px; max-width: 720px; } }
+.guide-body h2 { font-size: 24px; font-weight: 900; letter-spacing: -0.015em; margin: 26px 0 12px; color: var(--ink); }
+.guide-body h2:first-child { margin-top: 4px; }
+.guide-body p { font-family: 'Noto Serif', serif; font-size: 15.5px; line-height: 1.7; color: var(--ink2); margin-bottom: 14px; }
+.guide-body ul { margin: 0 0 14px 20px; }
+.guide-body li { font-family: 'Noto Serif', serif; font-size: 15.5px; line-height: 1.7; color: var(--ink2); margin-bottom: 8px; }
+.guide-body strong { color: var(--ink); font-weight: 700; }
+.guide-body a { color: var(--gold-deep); font-weight: 600; }
+.guide-intro { font-family: 'Noto Serif', serif; font-size: 16px; line-height: 1.7; color: var(--ink2); margin-bottom: 8px; }
+.kc-table { width: 100%; border-collapse: collapse; margin: 6px 0 18px; font-size: 14px; background: var(--white); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.kc-table th, .kc-table td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.kc-table th { background: var(--paper2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink2); }
+.kc-table td.n { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ── LOADING ── */
+.state-block { text-align: center; padding: 70px 24px; }
+.spinner { width: 38px; height: 38px; border: 4px solid var(--line); border-top-color: var(--gold-deep); border-radius: 50%; margin: 0 auto 18px; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.state-block h2 { font-size: 20px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+.state-block p { font-family: 'Noto Serif', serif; font-size: 15px; line-height: 1.6; color: var(--ink2); margin: 0 auto 16px; max-width: 440px; }
+
+footer { background: var(--black); color: rgba(255,255,255,0.7); padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); font-size: 12px; line-height: 1.6; text-align: center; border-top: 3px solid var(--gold); }
+footer strong { color: #fff; font-weight: 700; }
+footer a { color: var(--gold); text-decoration: none; }
+footer .fline { margin-bottom: 4px; }
+::selection { background: rgba(241,179,0,0.3); }
+</style>
+</head>
+<body>
+<header>
+  <button class="brand" id="brandBtn">
+    <span><em>Spring Wheat</em> Water Use</span>
+    <span class="sub">Southern Idaho · Irrigated</span>
+  </button>
+  <button class="nav-guide" id="guideBtn">About the numbers</button>
+</header>
+<div class="back-bar" id="backBar">
+  <button class="back-btn" id="backBtn"><span class="arr">‹</span> Back</button>
+</div>
+<main id="app">
+  <div class="state-block"><div class="spinner"></div><p>Loading…</p></div>
+</main>
+<footer>
+  <div class="fline">Built by <strong>Dr. Meetpal S. Kukal</strong>, University of Idaho–Boise</div>
+  <div class="fline">Crop coefficients from eddy-covariance measurements at Declo, Idaho (2025–2026)</div>
+  <div>Weather: <a href="https://www.usbr.gov/pn/agrimet/" target="_blank" rel="noopener">USBR AgriMet</a> · Forecast: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<!-- ═════════════════════════════════════════════════════════════
+     FORECAST MODULE (beta, swappable)
+     Contract: Forecast.get(lat, lng) -> Promise<{ source, elevation_m,
+       days: [{ date:"YYYY-MM-DD", tmax_f, tmin_f, etrs_in }] }>
+     Today's approach: Open-Meteo daily weather -> ASCE-EWRI (2005)
+     standardized TALL reference ET (ETrs, alfalfa basis), computed here.
+     Replace this whole block to change the forecast method.
+     ═════════════════════════════════════════════════════════════ -->
+<script>
+const Forecast = (() => {
+  const URL_BASE = "https://api.open-meteo.com/v1/forecast";
+  const DAYS = 7;
+
+  // Saturation vapour pressure, kPa (T in deg C)
+  const esat = (t) => 0.6108 * Math.exp(17.27 * t / (t + 237.3));
+
+  // ASCE-EWRI (2005) standardized reference ET, daily, TALL (alfalfa) surface.
+  // Inputs: tmax/tmin/tdew deg C, wind at zw metres (m/s), Rs MJ m-2 d-1,
+  // elevation m, latitude deg, day of year. Returns mm/day.
+  function asceEtrsDaily({ tmax, tmin, tdew, wind, zw = 10, rs, elev, lat, doy }) {
+    const Cn = 1600, Cd = 0.38;                      // tall reference, daily
+    const tmean = (tmax + tmin) / 2;
+    const P = 101.3 * Math.pow((293 - 0.0065 * elev) / 293, 5.26);
+    const gamma = 0.000665 * P;
+    const delta = 2503 * Math.exp(17.27 * tmean / (tmean + 237.3)) / Math.pow(tmean + 237.3, 2);
+    const es = (esat(tmax) + esat(tmin)) / 2;
+    const ea = esat(tdew);
+    const u2 = wind * 4.87 / Math.log(67.8 * zw - 5.42); // log profile to 2 m
+    // Extraterrestrial radiation
+    const phi = lat * Math.PI / 180;
+    const dr = 1 + 0.033 * Math.cos(2 * Math.PI * doy / 365);
+    const dec = 0.409 * Math.sin(2 * Math.PI * doy / 365 - 1.39);
+    const ws = Math.acos(Math.max(-1, Math.min(1, -Math.tan(phi) * Math.tan(dec))));
+    const Ra = (24 / Math.PI) * 4.92 * dr *
+      (ws * Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.sin(ws));
+    const Rso = (0.75 + 2e-5 * elev) * Ra;
+    const ratio = Rso > 0 ? Math.max(0.3, Math.min(1, rs / Rso)) : 0.5;
+    const fcd = Math.max(0.05, Math.min(1, 1.35 * ratio - 0.35));
+    const sigma = 4.901e-9;
+    const Rnl = sigma * fcd * (0.34 - 0.14 * Math.sqrt(Math.max(ea, 0))) *
+      (Math.pow(tmax + 273.16, 4) + Math.pow(tmin + 273.16, 4)) / 2;
+    const Rn = (1 - 0.23) * rs - Rnl;
+    const G = 0;
+    const num = 0.408 * delta * (Rn - G) + gamma * (Cn / (tmean + 273)) * u2 * Math.max(es - ea, 0);
+    const den = delta + gamma * (1 + Cd * u2);
+    return Math.max(0, num / den);
+  }
+
+  function doyOf(iso) {
+    const d = new Date(iso + "T00:00:00Z");
+    return Math.round((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1;
+  }
+
+  async function get(lat, lng) {
+    const q = new URLSearchParams({
+      latitude: lat.toFixed(4), longitude: lng.toFixed(4),
+      daily: "temperature_2m_max,temperature_2m_min,dew_point_2m_mean,wind_speed_10m_mean,shortwave_radiation_sum",
+      wind_speed_unit: "ms", timezone: "America/Boise", forecast_days: String(DAYS),
+    });
+    const resp = await fetch(`${URL_BASE}?${q}`);
+    if (!resp.ok) throw new Error(`forecast ${resp.status}`);
+    const j = await resp.json();
+    const dd = j.daily, elev = j.elevation ?? 1300;
+    const days = dd.time.map((date, i) => {
+      const tmax = dd.temperature_2m_max[i], tmin = dd.temperature_2m_min[i];
+      const tdew = dd.dew_point_2m_mean[i], wind = dd.wind_speed_10m_mean[i], rs = dd.shortwave_radiation_sum[i];
+      const ok = [tmax, tmin, tdew, wind, rs].every(v => v != null && isFinite(v));
+      const mm = ok ? asceEtrsDaily({ tmax, tmin, tdew, wind, rs, elev, lat, doy: doyOf(date) }) : null;
+      return {
+        date,
+        tmax_f: tmax != null ? tmax * 9 / 5 + 32 : null,
+        tmin_f: tmin != null ? tmin * 9 / 5 + 32 : null,
+        etrs_in: mm != null ? mm / 25.4 : null,
+      };
+    });
+    return { source: "Open-Meteo + ASCE standardized ETrs (beta)", elevation_m: elev, days };
+  }
+
+  return { get, asceEtrsDaily };
+})();
+</script>
+
+<script>
+// ══ CONFIG ═════════════════════════════════════════════════
+// Daily AgriMet data are static snapshots in ./data (data/<id>/<year>.csv and
+// data/index.json), refreshed every morning by a GitHub Action running
+// tools/fetch_agrimet.py. No relay is needed (usbr.gov sends no CORS headers).
+const DATA_BASE = "data/";
+const TZ = "America/Boise";
+
+// ══ STATIONS (southern Idaho irrigated agriculture) ════════
+// `code` keeps the crop-chart style used by the PNW viewer (e.g. malich);
+// the AgriMet 4-letter id is the code minus its trailing "ch" (malich -> mali).
+const STATIONS = [
+  { name: "Nampa", code: "nmpich", lat: 43.43722, lng: -116.64527, region: "Treasure Valley & Western Snake" },
+  { name: "Parma", code: "pmaich", lat: 43.802227, lng: -116.944218, region: "Treasure Valley & Western Snake" },
+  { name: "Grand View", code: "gdvich", lat: 42.9125, lng: -116.05611, region: "Treasure Valley & Western Snake" },
+  { name: "Glenns Ferry", code: "gfrich", lat: 42.851671, lng: -115.355226, region: "Treasure Valley & Western Snake" },
+  { name: "Fairfield", code: "fafich", lat: 43.31305, lng: -114.82222, region: "Camas Prairie & Wood River" },
+  { name: "Picabo", code: "picich", lat: 43.31166, lng: -114.16583, region: "Camas Prairie & Wood River" },
+  { name: "Twin Falls (Kimberly)", code: "twfich", lat: 42.545706, lng: -114.345999, region: "Magic Valley" },
+  { name: "Twin Falls Fairgrounds (Filer)", code: "tfgich", lat: 42.568782, lng: -114.601548, region: "Magic Valley" },
+  { name: "Dietrich", code: "drtich", lat: 42.9006659, lng: -114.2338757, region: "Magic Valley" },
+  { name: "Richfield (INL)", code: "ichich", lat: 43.0606, lng: -114.134583, region: "Magic Valley" },
+  { name: "Rupert", code: "rptich", lat: 42.59555, lng: -113.87388, region: "Magic Valley" },
+  { name: "Minidoka (INL)", code: "mdkich", lat: 42.804417, lng: -113.58965, region: "Magic Valley" },
+  { name: "Malta", code: "malich", lat: 42.437262, lng: -113.414336, region: "Magic Valley" },
+  { name: "Aberdeen", code: "abeich", lat: 42.954395, lng: -112.825185, region: "Eastern Snake Plain" },
+  { name: "Fort Hall", code: "fthich", lat: 43.072692, lng: -112.432411, region: "Eastern Snake Plain" },
+  { name: "Blackfoot (INL)", code: "ackich", lat: 43.18985, lng: -112.3332, region: "Eastern Snake Plain" },
+  { name: "Shelley", code: "shlich", lat: 43.43452, lng: -112.14273, region: "Eastern Snake Plain" },
+  { name: "Idaho Falls (INL)", code: "ifaich", lat: 43.504133, lng: -112.050133, region: "Eastern Snake Plain" },
+  { name: "Osgood", code: "osgich", lat: 43.582727, lng: -112.091824, region: "Eastern Snake Plain" },
+  { name: "Rigby", code: "rgbich", lat: 43.6772, lng: -111.87922, region: "Eastern Snake Plain" },
+  { name: "Ririe", code: "rriich", lat: 43.610345, lng: -111.700605, region: "Eastern Snake Plain" },
+  { name: "Roberts (INL)", code: "robich", lat: 43.743517, lng: -112.121117, region: "Eastern Snake Plain" },
+  { name: "Rexburg", code: "rxgich", lat: 43.847699, lng: -111.768105, region: "Eastern Snake Plain" },
+  { name: "Sugar City (INL)", code: "sugich", lat: 43.896583, lng: -111.737617, region: "Eastern Snake Plain" },
+  { name: "Terreton", code: "trtich", lat: 43.8704, lng: -112.26394, region: "Eastern Snake Plain" },
+  { name: "Terreton (INL)", code: "terich", lat: 43.841683, lng: -112.41825, region: "Eastern Snake Plain" },
+  { name: "Hamer (INL)", code: "hamich", lat: 44.007417, lng: -112.238833, region: "Eastern Snake Plain" },
+  { name: "Ashton", code: "ahtich", lat: 44.027245, lng: -111.450275, region: "Eastern Snake Plain" },
+  { name: "Downey", code: "dwnich", lat: 42.43355, lng: -112.12929, region: "Southeast Valleys" },
+  { name: "Grace", code: "greich", lat: 42.51496, lng: -111.73606, region: "Southeast Valleys" },
+  { name: "Preston", code: "pstich", lat: 42.10715, lng: -111.89363, region: "Southeast Valleys" },
+  { name: "Montpelier", code: "mnpich", lat: 42.25452, lng: -111.33773, region: "Southeast Valleys" },
+];
+const REGIONS = [...new Set(STATIONS.map(s => s.region))];
+const agrimetId = (code) => code.replace(/ch$/, "");   // malich -> mali
+const stationByCode = (code) => STATIONS.find(s => s.code === code);
+
+// ══ CROP COEFFICIENTS (ETrs / alfalfa basis) ═══════════════
+// From presentation/data/kc_fits.json — Declo, ID eddy covariance 2025+2026.
+const KC = {
+  gdd: { // fits.CGDD_F.pooled, x = cumulative GDD (F) since emergence
+    Kc_ini: 0.6316531334375715, Kc_mid: 1.0742183266080816, Kc_end: 0.04296107032814267,
+    L_ini: 312.2739989946983, L_dev: 1022.1134669978658, L_mid: 577.5226066488632, x_end: 3117.6274000000026,
+    r2: 0.627, rmse: 0.191, unit: "GDD °F", short: "GDD",
+  },
+  dae: { // fits.DAE.pooled, x = days after emergence
+    Kc_ini: 0.6047352760107146, Kc_mid: 0.9377824201304951, Kc_end: 0.14924651381650622,
+    L_ini: 7.138465760507503e-18, L_dev: 52.888967173780394, L_mid: 51.402268316358004, x_end: 122.0,
+    r2: 0.125, rmse: 0.293, unit: "days", short: "DAE",
+  },
+};
+// Basal (transpiration-only) curve, fits.CGDD_F.Kcb_pooled — used in the guide.
+const KCB_GDD = { Kc_ini: 0.3947891545820071, Kc_mid: 0.7963740434316618, Kc_end: 0.007430196228360518,
+  L_ini: 428.633437754156, L_dev: 614.8752411262454, L_mid: 865.7391643615304, x_end: 3117.6274000000026 };
+
+function kcCurve(p, x) {
+  const x1 = p.L_ini, x2 = x1 + p.L_dev, x3 = x2 + p.L_mid;
+  let k;
+  if (x <= x1) k = p.Kc_ini;
+  else if (x <= x2) k = p.Kc_ini + (p.Kc_mid - p.Kc_ini) * (x - x1) / Math.max(p.L_dev, 1e-9);
+  else if (x <= x3) k = p.Kc_mid;
+  else k = p.Kc_mid + (p.Kc_end - p.Kc_mid) * (Math.min(x, p.x_end) - x3) / Math.max(p.x_end - x3, 1e-9);
+  return Math.max(0, k);
+}
+function stageOf(p, x) {
+  const x1 = p.L_ini, x2 = x1 + p.L_dev, x3 = x2 + p.L_mid;
+  if (x >= p.x_end) return "Mature (season complete)";
+  if (x <= x1) return "Initial";
+  if (x <= x2) return "Development";
+  if (x <= x3) return "Mid-season";
+  return "Late season";
+}
+
+// AgriMet spring grain (SGRN): 21-point table at 0,10,...,200 % of growth stage
+const SGRN_KC = [0.20,0.20,0.30,0.60,0.83,0.94,0.98,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,0.96,0.76,0.60,0.43,0.28];
+const SGRN_DATES = { start: "03-15", cover: "06-10", term: "07-20" };
+function sgrnKc(date, year) {
+  const st = `${year}-${SGRN_DATES.start}`, cv = `${year}-${SGRN_DATES.cover}`, tm = `${year}-${SGRN_DATES.term}`;
+  const pct = date <= cv ? daysBetween(st, date) / daysBetween(st, cv) * 100
+                         : 100 + daysBetween(cv, date) / daysBetween(cv, tm) * 100;
+  if (pct < 0 || pct > 200) return null;   // outside AgriMet's SGRN season
+  const i = Math.min(19, Math.floor(pct / 10)), f = (pct - i * 10) / 10;
+  return SGRN_KC[i] + (SGRN_KC[i + 1] - SGRN_KC[i]) * f;
+}
+function gddF(mx, mn) { return Math.max(0, Math.min((mx + mn) / 2, 86) - 32); }
+
+// ══ DATE HELPERS (ISO strings, UTC math) ═══════════════════
+const toUTC = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+const fromUTC = (t) => new Date(t).toISOString().slice(0, 10);
+const addDays = (s, n) => fromUTC(toUTC(s) + n * 86400000);
+const daysBetween = (a, b) => Math.round((toUTC(b) - toUTC(a)) / 86400000);
+const todayISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const fmtMD = (s) => `${+s.slice(5, 7)}/${+s.slice(8, 10)}`;
+const fmtLong = (s) => `${MON[+s.slice(5, 7) - 1]} ${+s.slice(8, 10)}, ${s.slice(0, 4)}`;
+const fmtShort = (s) => `${MON[+s.slice(5, 7) - 1]} ${+s.slice(8, 10)}`;
+const dowOf = (s) => DOW[new Date(toUTC(s)).getUTCDay()];
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const f2 = (v) => v == null ? "—" : v.toFixed(2);
+const f1 = (v) => v == null ? "—" : v.toFixed(1);
+
+// ══ STORAGE ════════════════════════════════════════════════
+const FIELDS_KEY = "sw_fields_v1", METHOD_KEY = "sw_method_v1";
+function getFields() { try { return JSON.parse(localStorage.getItem(FIELDS_KEY)) || []; } catch (e) { return []; } }
+function setFields(f) { try { localStorage.setItem(FIELDS_KEY, JSON.stringify(f)); } catch (e) {} }
+function getMethod() { try { return localStorage.getItem(METHOD_KEY) === "dae" ? "dae" : "gdd"; } catch (e) { return "gdd"; } }
+function setMethod(m) { try { localStorage.setItem(METHOD_KEY, m); } catch (e) {} }
+function fieldById(id) { return getFields().find(f => f.id === id); }
+
+// ══ DATA FETCH ═════════════════════════════════════════════
+const dataCache = new Map();
+const MISSING = (v) => v === "" || v == null || !isFinite(+v) || +v <= -90;  // blanks or -99.99 style flags
+let indexPromise = null;
+function fetchIndex() {   // { updated, stations: { mali: { years: [2003, ...] } } }
+  if (!indexPromise) {
+    indexPromise = fetch(`${DATA_BASE}index.json`, { cache: "no-cache" })
+      .then(r => { if (!r.ok) throw new Error(`station index ${r.status}`); return r.json(); });
+    indexPromise.catch(() => { indexPromise = null; });
+  }
+  return indexPromise;
+}
+async function stationYears(code) {
+  const ix = await fetchIndex();
+  const s = ix.stations[agrimetId(code)];
+  return s ? s.years.slice().sort((a, b) => b - a) : [];
+}
+async function fetchYear(id, year) {
+  const url = `${DATA_BASE}${id}/${year}.csv`;
+  if (dataCache.has(url)) return dataCache.get(url);
+  const resp = await fetch(url, { cache: "no-cache" });
+  if (resp.status === 404) return [];
+  if (!resp.ok) throw new Error(`data ${resp.status}`);
+  const lines = (await resp.text()).trim().split(/\r?\n/).filter(Boolean);
+  const hdr = lines[0].split(",").map(s => s.trim().toLowerCase());
+  const ci = { etrs: hdr.indexOf("etrs"), mx: hdr.indexOf("mx"), mn: hdr.indexOf("mn"), pp: hdr.indexOf("pp") };
+  const rows = lines.slice(1).map(l => {
+    const c = l.split(",").map(s => s.trim());
+    const g = (k) => ci[k] < 0 || MISSING(c[ci[k]]) ? null : +c[ci[k]];
+    const pp = g("pp");   // small negative precip (e.g. -0.01) = gauge noise -> 0
+    return { date: c[0].slice(0, 10), etrs: g("etrs"), mx: g("mx"), mn: g("mn"), pp: pp == null ? null : Math.max(0, pp) };
+  }).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.date));
+  dataCache.set(url, rows);
+  return rows;
+}
+async function fetchDaily(code, start, end) {
+  const id = agrimetId(code), y0 = +start.slice(0, 4), y1 = +end.slice(0, 4);
+  const parts = [];
+  for (let y = y0; y <= y1; y++) parts.push(fetchYear(id, y));
+  return (await Promise.all(parts)).flat().filter(r => r.date >= start && r.date <= end);
+}
+const fcCache = new Map();
+async function fetchForecast(st) {
+  const k = st.code;
+  if (fcCache.has(k)) return fcCache.get(k);
+  const p = Forecast.get(st.lat, st.lng);
+  fcCache.set(k, p);
+  p.catch(() => fcCache.delete(k));
+  return p;
+}
+
+// ══ SEASON MODEL ═══════════════════════════════════════════
+// rows: station daily rows starting at emergence. Returns per-day series,
+// totals, stage, and optional forecast days.
+function computeSeason(rows, fc, emergence, method, today) {
+  const p = KC[method], year = +emergence.slice(0, 4);
+  const yesterday = addDays(today, -1);
+  // keep only rows up to the last day with a reported ETrs (later rows = not yet published)
+  let lastIdx = -1;
+  rows.forEach((r, i) => { if (r.date <= yesterday && r.etrs != null) lastIdx = i; });
+  const obs = [];
+  let cg = 0, lastG = 0, complete = false, missingEt = 0, missingT = 0;
+  for (let i = 0; i <= lastIdx; i++) {
+    const r = rows[i];
+    if (r.date < emergence) continue;
+    let g;
+    if (r.mx != null && r.mn != null) { g = gddF(r.mx, r.mn); lastG = g; } else { g = lastG; missingT++; }
+    cg += g;
+    const dae = daysBetween(emergence, r.date);
+    const x = method === "gdd" ? cg : dae;
+    const kc = kcCurve(p, x);
+    const et = r.etrs != null ? kc * r.etrs : null;
+    if (et == null) missingEt++;
+    obs.push({ date: r.date, etrs: r.etrs, pp: r.pp, gdd: g, cgdd: cg, dae, x, kc, et, sgrn: sgrnKc(r.date, year) });
+    if (x >= p.x_end) { complete = true; break; }
+  }
+  const last = obs[obs.length - 1] || null;
+  // Forecast continues the season if it is still running and data are recent
+  let fcst = [];
+  const fcUsable = !complete && last && daysBetween(last.date, today) <= 4 && fc && fc.days;
+  if (fcUsable) {
+    let c = last.cgdd, done = false;
+    for (const d of fc.days) {
+      if (d.date <= last.date || done) continue;
+      const g = (d.tmax_f != null && d.tmin_f != null) ? gddF(d.tmax_f, d.tmin_f) : 0;
+      c += g;
+      const dae = daysBetween(emergence, d.date);
+      const x = method === "gdd" ? c : dae;
+      const kc = kcCurve(p, x);
+      fcst.push({ date: d.date, etrs: d.etrs_in, gdd: g, cgdd: c, dae, x, kc,
+        et: d.etrs_in != null ? kc * d.etrs_in : null, sgrn: sgrnKc(d.date, year), forecast: true });
+      if (x >= p.x_end) done = true;
+    }
+  }
+  const sum = (a) => a.reduce((s, r) => s + (r.et || 0), 0);
+  let cum = 0; obs.forEach(r => { cum += r.et || 0; r.cum = cum; });
+  let cf = cum; fcst.forEach(r => { cf += r.et || 0; r.cum = cf; });
+  return {
+    method, p, emergence, year, obs, fcst, complete, last,
+    latestEt: last ? last.et : null,
+    last7: sum(obs.slice(-7)), season: cum, next7: fcst.length ? sum(fcst) : null,
+    rain: obs.reduce((s, r) => s + (r.pp || 0), 0),
+    stage: last ? stageOf(p, last.x) : "Not emerged",
+    missingEt, missingT, fcUsable: !!fcUsable,
+  };
+}
+
+// ══ SVG CHARTS ═════════════════════════════════════════════
+const C = { gold: "#F1B300", goldDeep: "#C99400", ink: "#1A1814", ink2: "#4A4640", ink3: "#757069",
+  grid: "rgba(26,24,20,0.10)", past: "#B9BEC4", green: "#3B6D11", greenSoft: "#9DBB7E", rain: "#3A7CA5", sgrn: "#8C7A55" };
+function niceMax(v, steps = [0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50]) {
+  for (const s of steps) if (v <= s * 4) return Math.ceil(v / s) * s || s;
+  return Math.ceil(v);
+}
+function svgText(x, y, t, a = {}) {
+  const attrs = Object.entries({ "font-size": 11, fill: C.ink3, ...a }).map(([k, v]) => `${k}="${v}"`).join(" ");
+  return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" ${attrs}>${t}</text>`;
+}
+
+// Daily bars: last 14 observed days + forecast days, plus rain strip
+function chartDaily(S, W) {
+  const whole = S.complete;                       // finished season: show every day
+  const past = whole ? S.obs : S.obs.slice(-14), fc = S.fcst.slice(0, 7), all = [...past, ...fc];
+  const H = 250, padL = 36, padR = 8, padT = 22, barH = 140, gapRain = 30, rainH = 34;
+  const baseY = padT + barH, rainTop = baseY + gapRain, rainBase = rainTop + rainH;
+  const n = Math.max(all.length, 1), slot = (W - padL - padR) / n, bw = Math.max(1.5, slot * 0.72);
+  const ymax = Math.max(0.1, Math.ceil(Math.max(...all.map(r => r.et || 0)) * 10 - 1e-9) / 10);
+  const rmax = Math.max(0.25, ...past.map(r => r.pp || 0));
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily crop ET bar chart">`;
+  for (let k = 0; k <= 2; k++) {
+    const v = ymax * k / 2, y = baseY - barH * k / 2;
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${k ? C.grid : C.ink2}" stroke-width="${k ? 1 : 1.2}"/>`;
+    s += svgText(padL - 5, y + 4, v.toFixed(2), { "text-anchor": "end" });
+  }
+  s += svgText(4, padT - 9, "Crop ET (in/day)", { "font-weight": 700, fill: C.ink2 });
+  if (fc.length) {
+    const fx = padL + past.length * slot;
+    s += `<rect x="${fx}" y="${padT - 4}" width="${fc.length * slot}" height="${barH + 4}" fill="${C.green}" opacity="0.06"/>`;
+    s += `<line x1="${fx}" x2="${fx}" y1="${padT - 6}" y2="${baseY}" stroke="${C.green}" stroke-dasharray="3 3"/>`;
+    s += svgText(fx + 4, padT + 6, "Forecast · beta", { fill: C.green, "font-weight": 800, "font-size": 10.5 });
+  }
+  let hiIdx = past.length - 1;                    // gold bar: latest day, or peak day of a finished season
+  if (whole) past.forEach((r, i) => { if ((r.et || 0) > (past[hiIdx].et || 0)) hiIdx = i; });
+  const lastObsIdx = hiIdx;
+  const step = n > 14 ? 3 : n > 8 ? 2 : 1;
+  all.forEach((r, i) => {
+    const cx = padL + slot * i + slot / 2, v = r.et || 0, h = Math.max(r.et != null ? 2 : 0, v / ymax * barH);
+    let fill = C.past, extra = "";
+    if (r.forecast) { fill = C.greenSoft; extra = ` stroke="${C.green}" stroke-width="1.4" stroke-dasharray="3 2"`; }
+    else if (i === lastObsIdx) fill = C.gold;
+    s += `<rect class="hit" data-i="${i}" x="${(cx - slot / 2).toFixed(1)}" y="${padT}" width="${slot.toFixed(1)}" height="${(rainBase - padT).toFixed(1)}" fill="transparent"/>`;
+    s += `<rect pointer-events="none" x="${(cx - bw / 2).toFixed(1)}" y="${(baseY - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${fill}"${extra}/>`;
+    if (i === lastObsIdx && r.et != null) s += svgText(cx, baseY - h - 5, r.et.toFixed(2), { "text-anchor": "middle", fill: C.ink, "font-weight": 800 });
+    const showLbl = whole ? r.date.slice(8) === "01" || (i === 0 && +r.date.slice(8) <= 18)
+      : ((all.length - 1 - i) % step === 0 && Math.abs(i - lastObsIdx) >= 2) || i === lastObsIdx;
+    if (whole && showLbl) {
+      s += svgText(cx, baseY + 13, MON[+r.date.slice(5, 7) - 1], { "text-anchor": i === 0 ? "start" : "middle", "font-size": 10 });
+      s += `<line x1="${cx}" x2="${cx}" y1="${baseY}" y2="${baseY + 4}" stroke="${C.ink2}"/>`;
+    } else if (showLbl) {
+      s += svgText(cx, baseY + 13, fmtMD(r.date), { "text-anchor": "middle", "font-size": 9.5, fill: i === lastObsIdx ? C.ink : C.ink3, "font-weight": i === lastObsIdx ? 800 : 400 });
+    }
+    // rain strip (observed only)
+    if (!r.forecast && r.pp) {
+      const rh = Math.max(1.5, r.pp / rmax * rainH);
+      s += `<rect pointer-events="none" x="${(cx - bw / 3).toFixed(1)}" y="${(rainBase - rh).toFixed(1)}" width="${(bw * 2 / 3).toFixed(1)}" height="${rh.toFixed(1)}" rx="1.5" fill="${C.rain}" opacity="0.8"/>`;
+    }
+  });
+  s += `<line x1="${padL}" x2="${W - padR}" y1="${rainBase}" y2="${rainBase}" stroke="${C.grid}"/>`;
+  s += svgText(padL - 5, rainTop + 10, "Rain", { "text-anchor": "end", fill: C.rain, "font-weight": 700, "font-size": 10 });
+  s += svgText(padL - 5, rainBase, "(in)", { "text-anchor": "end", fill: C.rain, "font-size": 9 });
+  s += `</svg>`;
+  return { svg: s, rows: all, hiIdx };
+}
+
+// Kc curve vs GDD or DAE with today's marker and AgriMet SGRN comparison
+function chartKc(S, W) {
+  const p = S.p, H = 250, padL = 34, padR = 12, padT = 30, padB = 36;
+  const all = [...S.obs, ...S.fcst];
+  const curX = S.last ? S.last.x : 0;
+  const xmax = Math.max(p.x_end * 1.06, curX, ...all.map(r => r.x));
+  const ymax = 1.2;
+  const X = (x) => padL + x / xmax * (W - padL - padR), Y = (y) => H - padB - y / ymax * (H - padT - padB);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Crop coefficient curve">`;
+  const b = [0, p.L_ini, p.L_ini + p.L_dev, p.L_ini + p.L_dev + p.L_mid, p.x_end];
+  const names = ["Initial", "Development", "Mid-season", "Late"];
+  const shades = ["#F7F3E6", "#FBF8EF", "#F7F3E6", "#FBF8EF"];
+  for (let i = 0; i < 4; i++) {
+    if (b[i + 1] - b[i] <= 0.5) continue;
+    const x0 = X(b[i]), x1 = X(b[i + 1]);
+    s += `<rect x="${x0}" y="${padT}" width="${x1 - x0}" height="${H - padT - padB}" fill="${shades[i]}"/>`;
+    const lbl = (x1 - x0) < 70 ? ["Init.", "Dev.", "Mid", "Late"][i] : names[i];
+    if (x1 - x0 > 24) s += svgText((x0 + x1) / 2, padT - 6, lbl, { "text-anchor": "middle", "font-size": 10, "font-weight": 700, fill: C.ink2 });
+  }
+  for (let k = 0; k <= 4; k++) {
+    const v = k * 0.3, y = Y(v);
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${k ? C.grid : C.ink2}"/>`;
+    s += svgText(padL - 5, y + 4, v.toFixed(1), { "text-anchor": "end" });
+  }
+  const tickStep = S.method === "gdd" ? (W < 420 ? 1000 : 500) : 20;
+  for (let t = 0; t <= xmax; t += tickStep) {
+    s += `<line x1="${X(t)}" x2="${X(t)}" y1="${H - padB}" y2="${H - padB + 4}" stroke="${C.ink2}"/>`;
+    s += svgText(X(t), H - padB + 15, String(t), { "text-anchor": "middle" });
+  }
+  s += svgText((padL + W - padR) / 2, H - 4, S.method === "gdd" ? "Growing degree days since emergence (°F)" : "Days after emergence",
+    { "text-anchor": "middle", "font-weight": 700, fill: C.ink2 });
+  s += svgText(4, 12, "Kc", { "font-weight": 800, fill: C.ink2 });
+  // AgriMet SGRN (date-based), plotted at this season's x for each date
+  let seg = [];
+  const flush = () => { if (seg.length > 1) s += `<polyline points="${seg.join(" ")}" fill="none" stroke="${C.sgrn}" stroke-width="1.6" stroke-dasharray="5 4"/>`; seg = []; };
+  all.forEach(r => { if (r.sgrn == null || r.x > xmax) flush(); else seg.push(`${X(r.x).toFixed(1)},${Y(r.sgrn).toFixed(1)}`); });
+  flush();
+  // our curve
+  const pts = [];
+  for (let i = 0; i <= 200; i++) { const x = xmax * i / 200; pts.push(`${X(x).toFixed(1)},${Y(kcCurve(p, x)).toFixed(1)}`); }
+  s += `<polyline points="${pts.join(" ")}" fill="none" stroke="${C.ink}" stroke-width="3" stroke-linejoin="round"/>`;
+  // forecast span
+  if (S.fcst.length) {
+    const fx = S.fcst[S.fcst.length - 1].x;
+    s += `<circle cx="${X(fx)}" cy="${Y(kcCurve(p, fx))}" r="5" fill="#fff" stroke="${C.green}" stroke-width="2" stroke-dasharray="2 2"/>`;
+  }
+  if (S.last) {
+    const cx = X(curX), cy = Y(kcCurve(p, curX));
+    s += `<line x1="${cx}" x2="${cx}" y1="${padT}" y2="${H - padB}" stroke="${C.goldDeep}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="8" fill="${C.gold}" stroke="${C.ink}" stroke-width="2.5"/>`;
+    const lbl = `${S.complete ? "Season end" : "Latest"} · Kc ${kcCurve(p, curX).toFixed(2)}`;
+    const right = cx > W * 0.62, below = kcCurve(p, curX) > 0.55;
+    const by = below ? cy + 14 : cy - 32;
+    s += `<rect x="${right ? cx - 132 : cx + 10}" y="${by}" width="122" height="20" rx="5" fill="${C.ink}"/>`;
+    s += svgText(right ? cx - 71 : cx + 71, by + 14, lbl, { "text-anchor": "middle", fill: "#fff", "font-weight": 700, "font-size": 10.5 });
+  }
+  s += `</svg>`;
+  return s;
+}
+
+// Season cumulative ET line by date
+function chartCum(S, W) {
+  const H = 220, padL = 36, padR = 46, padT = 22, padB = 30;
+  const all = [...S.obs, ...S.fcst];
+  if (!all.length) return "";
+  const d0 = S.emergence, d1 = all[all.length - 1].date, span = Math.max(1, daysBetween(d0, d1));
+  const ymax = niceMax(Math.max(1, all[all.length - 1].cum));
+  const X = (d) => padL + daysBetween(d0, d) / span * (W - padL - padR);
+  const Y = (v) => H - padB - v / ymax * (H - padT - padB);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Season cumulative crop ET">`;
+  for (let k = 0; k <= 4; k++) {
+    const v = ymax * k / 4, y = Y(v);
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${k ? C.grid : C.ink2}"/>`;
+    s += svgText(padL - 5, y + 4, (+v.toFixed(1)).toString(), { "text-anchor": "end" });
+  }
+  // month ticks
+  let m = `${d0.slice(0, 7)}-01`;
+  while (m <= d1) {
+    if (m >= d0) {
+      s += `<line x1="${X(m)}" x2="${X(m)}" y1="${padT}" y2="${H - padB + 4}" stroke="${C.grid}"/>`;
+      s += svgText(X(m), H - padB + 16, MON[+m.slice(5, 7) - 1], { "text-anchor": "middle" });
+    }
+    const y = +m.slice(0, 4), mo = +m.slice(5, 7);
+    m = mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, "0")}-01`;
+  }
+  s += svgText(4, 12, "Cumulative crop ET (in)", { "font-weight": 700, fill: C.ink2 });
+  const op = S.obs.map(r => `${X(r.date).toFixed(1)},${Y(r.cum).toFixed(1)}`);
+  if (op.length) {
+    s += `<path d="M${X(S.obs[0].date)},${Y(0)} L${op.join(" L")} L${X(S.obs[S.obs.length - 1].date)},${Y(0)} Z" fill="${C.gold}" opacity="0.18"/>`;
+    s += `<polyline points="${op.join(" ")}" fill="none" stroke="${C.goldDeep}" stroke-width="3" stroke-linejoin="round"/>`;
+  }
+  if (S.fcst.length && S.last) {
+    const fp = [S.last, ...S.fcst].map(r => `${X(r.date).toFixed(1)},${Y(r.cum).toFixed(1)}`);
+    s += `<polyline points="${fp.join(" ")}" fill="none" stroke="${C.green}" stroke-width="2.5" stroke-dasharray="5 3"/>`;
+  }
+  if (S.last) {
+    const x = X(S.last.date), y = Y(S.last.cum);
+    s += `<circle cx="${x}" cy="${y}" r="5" fill="${C.gold}" stroke="${C.ink}" stroke-width="2"/>`;
+    s += svgText(Math.min(x + 7, W - 4), y - 9, `${S.last.cum.toFixed(1)} in`, { "text-anchor": x > W - padR - 30 ? "end" : "start", fill: C.ink, "font-weight": 800, "font-size": 12 });
+  }
+  s += `</svg>`;
+  return s;
+}
+
+// ══ ROUTER ═════════════════════════════════════════════════
+function route() {
+  const h = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
+  if (!h) return { view: "home", parts: [] };
+  const [view, ...parts] = h.split("/");
+  return { view, parts };
+}
+function go(...segs) { location.hash = segs.filter(s => s != null && s !== "").map(encodeURIComponent).join("/"); }
+window.addEventListener("hashchange", render);
+window.addEventListener("DOMContentLoaded", render);
+document.getElementById("brandBtn").addEventListener("click", () => go("home"));
+document.getElementById("guideBtn").addEventListener("click", () => go("guide"));
+document.getElementById("backBtn").addEventListener("click", () => {
+  const { view, parts } = route();
+  if (view === "setup") go("stations");
+  else if (view === "edit") go("field", parts[0]);
+  else go("home");
+});
+
+let activeMap = null, resizeHook = null;
+function destroyMap() { if (activeMap) { activeMap.remove(); activeMap = null; } }
+let lastW = window.innerWidth;
+window.addEventListener("resize", () => {
+  if (Math.abs(window.innerWidth - lastW) < 30) return;
+  lastW = window.innerWidth;
+  clearTimeout(window.__rz); window.__rz = setTimeout(() => resizeHook && resizeHook(), 150);
+});
+
+function render() {
+  destroyMap(); resizeHook = null;
+  const { view, parts } = route();
+  const app = document.getElementById("app");
+  app.className = view === "field" || view === "view" ? "wide" : "";
+  document.getElementById("backBar").className = (view === "home" || !view) ? "back-bar" : "back-bar show";
+  if (view === "stations") { if (parts[0] === "map" || parts[0] === "list") stationView = parts[0]; renderStations(); }
+  else if (view === "setup") renderSetup({ code: parts[0], year: parts[1] });
+  else if (view === "edit") renderSetup({ fieldId: parts[0] });
+  else if (view === "field") { const f = fieldById(parts[0]); f ? renderDashboard(f) : go("home"); }
+  else if (view === "view") renderDashboard({ id: null, name: "", code: parts[0], emergence: parts[1] });
+  else if (view === "guide") renderGuide();
+  else renderHome();
+  window.scrollTo(0, 0);
+}
+
+// ══ HOME ═══════════════════════════════════════════════════
+function renderHome() {
+  const fields = getFields();
+  const howHtml = `
+    <div class="section-label">How it works</div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div><strong>Pick your station</strong><span>Choose the AgriMet weather station closest to your field, from a list or a map.</span></div></div>
+      <div class="step"><div class="num">2</div><div><strong>Enter emergence</strong><span>Tell us the season and the date your wheat emerged. Save as many fields as you like.</span></div></div>
+      <div class="step"><div class="num">3</div><div><strong>See water use</strong><span>Daily crop ET, 7-day and season totals, growth stage, and a 7-day outlook.</span></div></div>
+    </div>
+    <div class="cta-row">
+      <button class="btn-primary" id="addBtn">+ Add a field <span class="g">›</span></button>
+      <button class="btn-secondary" id="exampleBtn">See an example <span class="sm">· Malta, 2026 season</span></button>
+      <button class="btn-secondary" id="pastBtn">Simulate a past season <span class="sm">· any year on record</span></button>
+    </div>`;
+  let html = `
+    <div class="hero">
+      <div class="hero-eyebrow">University of Idaho · Irrigated spring wheat</div>
+      <h1>Spring wheat water use, <span>built from Idaho field measurements</span></h1>
+      <p class="hero-desc">Daily crop water use (ET) for your irrigated spring wheat, in inches. Crop coefficients come from flux towers in a spring wheat field at Declo, Idaho (2025–2026), applied to weather from your nearest AgriMet station.</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="n">${STATIONS.length}</div><div class="l">Stations</div></div>
+        <div class="hero-stat"><div class="n">2</div><div class="l">Seasons measured</div></div>
+        <div class="hero-stat"><div class="n">Daily</div><div class="l">Updates</div></div>
+        <div class="hero-stat"><div class="n">in</div><div class="l">Units</div></div>
+      </div>
+    </div>
+    `;
+  if (!fields.length) html += howHtml;
+  html += `<div class="section-label">★ Your saved fields</div>`;
+  if (fields.length) {
+    html += `<div class="saved-list">` + fields.map(f => {
+      const st = stationByCode(f.code);
+      return `<div class="field-row" data-field="${f.id}">
+        <div><div class="fname">${esc(f.name || (st ? st.name + " field" : f.code))}</div>
+        <div class="fmeta">${st ? esc(st.name) : f.code} station · emerged ${fmtLong(f.emergence)}</div></div>
+        <span class="chev">›</span></div>`;
+    }).join("") + `</div>`;
+  } else {
+    html += `<div class="empty-card"><div class="empty-note">No saved fields yet. Tap <strong>Add a field</strong> to set one up, or open the example to see a full 2026 season.</div></div>`;
+  }
+  if (fields.length) html += howHtml;
+  document.getElementById("app").innerHTML = html;
+  document.getElementById("addBtn").addEventListener("click", () => go("stations"));
+  document.getElementById("exampleBtn").addEventListener("click", () => go("view", "malich", "2026-03-28"));
+  document.getElementById("pastBtn").addEventListener("click", () => go("stations"));
+  document.querySelectorAll("[data-field]").forEach(el => el.addEventListener("click", () => go("field", el.dataset.field)));
+}
+
+// ══ STATION LIST + MAP ═════════════════════════════════════
+let stationView = "list";
+function renderStations() {
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="page-head">
+      <h2>Pick a station<span class="accent-dot">.</span></h2>
+      <p>${STATIONS.length} AgriMet weather stations in southern Idaho's irrigated valleys. Choose the one nearest your field.</p>
+    </div>
+    <div class="view-toggle">
+      <button id="tabList" class="${stationView === "list" ? "active" : ""}">▤ List</button>
+      <button id="tabMap" class="${stationView === "map" ? "active" : ""}">◉ Map</button>
+    </div>
+    <div id="viewContainer"></div>`;
+  const container = document.getElementById("viewContainer");
+  const tabList = document.getElementById("tabList"), tabMap = document.getElementById("tabMap");
+  const pick = (code) => go("setup", code);
+
+  function showList() {
+    stationView = "list"; tabList.classList.add("active"); tabMap.classList.remove("active"); destroyMap();
+    container.innerHTML = `<div class="search-wrap"><input type="search" id="searchBox" placeholder="🔍  Search stations…" autocomplete="off"></div><div class="station-list" id="listBody"></div>`;
+    const listBody = document.getElementById("listBody"), box = document.getElementById("searchBox");
+    function draw(q) {
+      q = (q || "").trim().toLowerCase();
+      const m = STATIONS.filter(s => s.name.toLowerCase().includes(q) || s.region.toLowerCase().includes(q));
+      if (!m.length) { listBody.innerHTML = `<div class="empty-note">No stations match "${esc(q)}"</div>`; return; }
+      listBody.innerHTML = REGIONS.map(rg => {
+        const rs = m.filter(s => s.region === rg);
+        if (!rs.length) return "";
+        return `<div class="region-label">${rg}</div>` + rs.map(s => `
+          <div class="station-row" data-open="${s.code}">
+            <span class="sname">${esc(s.name)} <span class="sreg">· ${agrimetId(s.code).toUpperCase()}</span></span>
+            <span class="chev">›</span></div>`).join("");
+      }).join("");
+      listBody.querySelectorAll("[data-open]").forEach(el => el.addEventListener("click", () => pick(el.dataset.open)));
+    }
+    box.addEventListener("input", () => draw(box.value)); draw("");
+  }
+  function showMap() {
+    stationView = "map"; tabMap.classList.add("active"); tabList.classList.remove("active");
+    container.innerHTML = `<div id="map"></div>`; destroyMap();
+    activeMap = L.map("map", { zoomSnap: 0.25 }).setView([43.0, -114.0], 7);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap", maxZoom: 18 }).addTo(activeMap);
+    const icon = L.divIcon({ className: "agm-pin",
+      html: '<div style="width:16px;height:16px;border-radius:50%;background:#F1B300;border:2.5px solid #0A0A0A;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>',
+      iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -10] });
+    const markers = STATIONS.map(s => L.marker([s.lat, s.lng], { icon }).addTo(activeMap)
+      .bindPopup(`<div class="map-popup-name">${esc(s.name)}</div><div class="map-popup-reg">${s.region}</div>
+        <button class="map-popup-btn" onclick="window.__pickStation('${s.code}')">Use this station <span class="g">›</span></button>`));
+    activeMap.fitBounds(L.featureGroup(markers).getBounds(), { padding: [18, 18] });
+    setTimeout(() => { if (activeMap) activeMap.invalidateSize(); }, 200);
+  }
+  window.__pickStation = pick;
+  tabList.addEventListener("click", showList); tabMap.addEventListener("click", showMap);
+  stationView === "map" ? showMap() : showList();
+}
+
+// ══ FIELD SETUP ════════════════════════════════════════════
+function defaultEmergence(year) {
+  // Typical southern Idaho spring wheat emergence: early-mid April.
+  // Current season before April: suggest Apr 10. Example 2026 season used Mar 28 at Declo.
+  const d = year === 2026 ? "2026-03-28" : `${year}-04-10`;
+  const t = todayISO();
+  return d > t ? t : d;
+}
+async function renderSetup({ code, fieldId, year: askedYear }) {
+  const existing = fieldId ? fieldById(fieldId) : null;
+  if (fieldId && !existing) { go("home"); return; }
+  const st = stationByCode(existing ? existing.code : code);
+  if (!st) { go("stations"); return; }
+  const today = todayISO(), cy = +today.slice(0, 4);
+  const app = document.getElementById("app");
+  const hashNow = location.hash;
+  app.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Checking which seasons <strong>${esc(st.name)}</strong> has on record…</p></div>`;
+  let years = [];
+  try { years = await stationYears(st.code); } catch (e) { console.warn("index unavailable", e); }
+  if (location.hash !== hashNow) return;   // user navigated away meanwhile
+  if (!years.length) { for (let y = cy; y >= cy - 10; y--) years.push(y); }
+  const wantYear = existing ? +existing.emergence.slice(0, 4) : (+askedYear || years[0]);
+  const year = years.includes(wantYear) ? wantYear : years[0];
+  const emerg = existing ? existing.emergence : defaultEmergence(year);
+  app.innerHTML = `
+    <div class="page-head">
+      <h2>${existing ? "Edit field" : "Set up your field"}<span class="accent-dot">.</span></h2>
+      <p>Pick the season and the date your spring wheat emerged. Water use is counted from emergence.</p>
+    </div>
+    <div class="form-body">
+      <div class="form-group">
+        <span class="form-label">Weather station</span>
+        <div class="station-chip"><div><strong>${esc(st.name)}</strong><br><span>${st.region} · AgriMet ${agrimetId(st.code).toUpperCase()}</span></div><a id="chgStation">Change</a></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="yearSel">Season</label>
+        <select class="form-select" id="yearSel">${years.map(y => `<option value="${y}" ${y === year ? "selected" : ""}>${y}${y === cy ? " (this year)" : ""}</option>`).join("")}</select>
+        <div class="form-help">Any season this station has on record (${years[years.length - 1]}–${years[0]}). Pick a past year to simulate a whole season's daily water use.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="emergInput">Emergence date</label>
+        <input class="form-input" type="date" id="emergInput" value="${emerg}" min="${year}-02-01" max="${year}-07-31">
+        <div class="form-help">The date most seedlings broke the soil surface (roughly 1–2 weeks after planting).</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="nameInput">Field name <span style="text-transform:none;letter-spacing:0;font-weight:600">(optional)</span></label>
+        <input class="form-input" type="text" id="nameInput" maxlength="40" placeholder="e.g. North pivot" value="${existing ? esc(existing.name || "") : ""}">
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" id="saveBtn">${existing ? "Save changes" : "Save field & view water use"} <span class="g">›</span></button>
+        ${existing ? `<button class="btn-danger" id="delBtn">Delete this field</button>` : `<button class="btn-secondary" id="viewBtn">Just view, don't save</button>`}
+      </div>
+    </div>`;
+  const yearSel = document.getElementById("yearSel"), emIn = document.getElementById("emergInput");
+  yearSel.addEventListener("change", () => {
+    const y = +yearSel.value;
+    const md = emIn.value ? emIn.value.slice(4) : "-04-10";
+    emIn.min = `${y}-02-01`; emIn.max = `${y}-07-31`; emIn.value = `${y}${md}`;
+  });
+  document.getElementById("chgStation").addEventListener("click", () => go("stations"));
+  const valid = () => {
+    const v = emIn.value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { alert("Please enter an emergence date."); return null; }
+    if (v > today) { alert("Emergence date is in the future. Pick a date on or before today."); return null; }
+    return v;
+  };
+  document.getElementById("saveBtn").addEventListener("click", () => {
+    const e = valid(); if (!e) return;
+    const fields = getFields(), name = document.getElementById("nameInput").value.trim();
+    if (existing) { Object.assign(fields.find(f => f.id === existing.id), { emergence: e, name, code: st.code }); setFields(fields); go("field", existing.id); }
+    else { const id = Date.now().toString(36); fields.unshift({ id, code: st.code, emergence: e, name }); setFields(fields); go("field", id); }
+  });
+  if (existing) document.getElementById("delBtn").addEventListener("click", () => {
+    if (!confirm("Delete this field?")) return;
+    setFields(getFields().filter(f => f.id !== existing.id)); go("home");
+  });
+  else document.getElementById("viewBtn").addEventListener("click", () => { const e = valid(); if (e) go("view", st.code, e); });
+}
+
+// ══ DASHBOARD ══════════════════════════════════════════════
+let dash = null;
+async function renderDashboard(field) {
+  const st = stationByCode(field.code);
+  const app = document.getElementById("app");
+  if (!st || !/^\d{4}-\d{2}-\d{2}$/.test(field.emergence || "")) {
+    app.innerHTML = `<div class="state-block"><h2>Field not found</h2><p>That station or date isn't recognized.</p><button class="btn-primary" style="max-width:260px;margin:0 auto" onclick="location.hash='stations'">Pick a station</button></div>`;
+    return;
+  }
+  const today = todayISO();
+  if (field.emergence > today) {
+    app.innerHTML = `<div class="state-block"><h2>Not emerged yet</h2><p>This field's emergence date (${fmtLong(field.emergence)}) is in the future.</p></div>`;
+    return;
+  }
+  app.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Getting weather for <strong>${esc(st.name)}</strong> and computing water use…<br><span style="font-size:13px;color:var(--ink3)">Usually takes 2–5 seconds.</span></p></div>`;
+  const end = [addDays(field.emergence, 210), today].sort()[0];
+  const recent = daysBetween(end, today) <= 10;   // past seasons need no forecast
+  try {
+    const [rows, fc, years] = await Promise.all([
+      fetchDaily(st.code, field.emergence, end),
+      recent ? fetchForecast(st).catch(e => { console.warn("forecast unavailable", e); return null; }) : null,
+      stationYears(st.code).catch(() => []),
+    ]);
+    if (!rows.some(r => r.etrs != null)) throw new Error("No reference ET reported for this station and season yet.");
+    dash = { field, st, rows, fc, today, years };
+    drawDashboard();
+  } catch (err) {
+    console.error(err);
+    app.innerHTML = `<div class="state-block"><h2>No data available</h2><p>${esc(err.message || "AgriMet did not return data for this station.")}</p>
+      <button class="btn-primary" style="max-width:260px;margin:0 auto" id="retryBtn">Try again</button></div>`;
+    document.getElementById("retryBtn").addEventListener("click", () => { dataCache.clear(); renderDashboard(field); });
+  }
+}
+
+function drawDashboard() {
+  const { field, st, rows, fc, today, years } = dash;
+  const method = getMethod();
+  const S = computeSeason(rows, fc, field.emergence, method, today);
+  const L = S.last;
+  const title = field.name || `${st.name} spring wheat`;
+  const yest = addDays(today, -1);
+  const latestLbl = S.complete ? "Final day of season" : (L && L.date === yest ? "Yesterday's crop ET" : "Latest day's crop ET");
+  const fcTile = S.complete
+    ? `<div class="tot-num">—</div><div class="tot-lbl">Next 7 days <span class="beta">beta</span></div><div class="tot-def">Season complete; no forecast needed.</div>`
+    : S.next7 != null
+      ? `<div class="tot-num">${f2(S.next7)}<span class="unit">in</span></div><div class="tot-lbl">Next 7 days <span class="beta">beta</span></div><div class="tot-def">Forecast crop ET, ${fmtShort(S.fcst[0].date)}–${fmtShort(S.fcst[S.fcst.length - 1].date)}</div>`
+      : `<div class="tot-num">—</div><div class="tot-lbl">Next 7 days <span class="beta">beta</span></div><div class="tot-def">Forecast unavailable right now.</div>`;
+  const app = document.getElementById("app");
+  app.innerHTML = `
+    <div class="station-hero">
+      <div class="stag">${S.year} season · ${esc(st.name)} AgriMet station</div>
+      <h1>${esc(title)}</h1>
+      <div class="date-badge">🌱 Emerged <strong>${fmtLong(field.emergence)}</strong> · 📅 ${S.complete ? "Matured" : "Data through"} <strong>${L ? fmtLong(L.date) : "—"}</strong></div>
+      ${years && years.length > 1 ? `<div class="season-switch"><label for="seasonSel">Same field in another season:</label>
+        <select id="seasonSel">${years.map(y => `<option value="${y}" ${y === S.year ? "selected" : ""}>${y}</option>`).join("")}</select>
+        <span class="ss-note">emergence ${fmtShort(field.emergence)}, adjustable</span></div>` : ""}
+    </div>
+    <div class="detail-body">
+      <div class="top-row"><div class="method-wrap">
+        <div class="view-toggle method-toggle">
+          <button data-m="gdd" class="${method === "gdd" ? "active" : ""}">By growing degree days</button>
+          <button data-m="dae" class="${method === "dae" ? "active" : ""}">By days after emergence</button>
+        </div>
+        <div class="method-note">${method === "gdd"
+          ? "<strong>Recommended.</strong> The degree-day curve tracks crop development with heat, so it transfers across planting dates and seasons."
+          : "Calendar-day curve shown for comparison. The degree-day curve is recommended because it transfers across planting dates and seasons; the day-count curve fit our two seasons poorly (R² 0.12 vs 0.63)."}</div>
+      </div>
+
+      <div class="stage-strip">
+        <span class="stage-pill ${S.complete ? "done" : ""}">${S.stage}</span>
+        <span class="kv">GDD since emergence <b>${L ? Math.round(L.cgdd).toLocaleString() : "—"}</b> °F</span>
+        <span class="kv">Day <b>${L ? L.dae : "—"}</b> after emergence</span>
+        <span class="kv">Kc <b>${L ? L.kc.toFixed(2) : "—"}</b></span>
+      </div></div>
+
+      <div class="totals-grid">
+        <div class="tot-box hl"><div class="tot-num">${f2(S.latestEt)}<span class="unit">in</span></div><div class="tot-lbl">${latestLbl}</div><div class="tot-def">${L ? `${dowOf(L.date)} ${fmtShort(L.date)} · station ETrs ${f2(L.etrs)} in × Kc ${L.kc.toFixed(2)}` : ""}</div></div>
+        <div class="tot-box"><div class="tot-num">${f2(S.last7)}<span class="unit">in</span></div><div class="tot-lbl">Last 7 days</div><div class="tot-def">Crop water use over the ${S.complete ? "final" : "past"} week</div></div>
+        <div class="tot-box"><div class="tot-num">${f1(S.season)}<span class="unit">in</span></div><div class="tot-lbl">${S.complete ? "Season total" : "Season to date"}</div><div class="tot-def">Since emergence (${fmtShort(field.emergence)})${S.complete ? " to maturity" : ""} · station rain ${f1(S.rain)} in</div></div>
+        <div class="tot-box fc">${fcTile}</div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-head"><div><h3>Daily crop water use</h3><div class="csub">${S.complete ? "Whole season, emergence to maturity" : "Last 14 days" + (S.fcst.length ? " + 7-day forecast" : "")} · inches per day · tap a bar</div></div></div>
+          <div class="card-body">
+            <div class="readout" id="dailyReadout"></div>
+            <div class="chart-box" id="dailyChart"></div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="legend-dot" style="background:${C.past}"></span>Past days</div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--gold)"></span>${S.complete ? "Peak day" : "Latest day"}</div>
+              ${S.fcst.length ? `<div class="legend-item"><span class="legend-dot" style="background:${C.greenSoft};border:1.5px dashed var(--green)"></span>Forecast (beta)</div>` : ""}
+              <div class="legend-item"><span class="legend-dot" style="background:var(--rain)"></span>Station rain, for context</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" id="kcCard">
+          <div class="card-head"><div><h3>Crop coefficient (Kc)</h3><div class="csub">Where your crop is on the measured curve · alfalfa reference basis</div></div></div>
+          <div class="card-body">
+            <div class="chart-box" id="kcChart"></div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="legend-line"></span>Declo-measured curve (${method === "gdd" ? "GDD" : "days"})</div>
+              <div class="legend-item"><span class="legend-line dash"></span>AgriMet spring grain (SGRN)</div>
+              <div class="legend-item"><span class="legend-dot" style="background:var(--gold);border:2px solid var(--ink);border-radius:50%"></span>${S.complete ? "Season end" : "Latest day"}</div>
+            </div>
+          </div>
+        </div>
+        <div class="card span2">
+          <div class="card-head"><div><h3>Season water use</h3><div class="csub">Cumulative crop ET since emergence, inches</div></div></div>
+          <div class="card-body">
+            <div class="chart-box" id="cumChart"></div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="legend-line" style="border-color:var(--gold-deep)"></span>From station data</div>
+              ${S.fcst.length ? `<div class="legend-item"><span class="legend-line fc"></span>Forecast (beta)</div>` : ""}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-head"><div><h3>Daily table</h3><div class="csub">Every day from emergence${S.complete ? " to maturity" : ""} · inches</div></div></div>
+        <div class="card-body">
+          <details id="dayTable"><summary style="cursor:pointer;font-weight:700">Show all ${S.obs.length + S.fcst.length} days</summary>
+            <div style="overflow-x:auto;max-height:420px;overflow-y:auto;margin-top:10px">
+              <table class="day-table"><thead><tr><th>Date</th><th>Days after emerg.</th><th>GDD (°F) since emerg.</th><th>Kc</th><th>Station ETrs</th><th>Crop ET</th><th>Season total</th><th>Rain</th></tr></thead>
+              <tbody>${S.obs.concat(S.fcst).map(r => `<tr${r.forecast ? ' class="fc"' : ""}><td>${fmtMD(r.date)}${r.forecast ? " (fcst)" : ""}</td><td>${r.dae}</td><td>${Math.round(r.cgdd)}</td><td>${r.kc.toFixed(2)}</td><td>${f2(r.etrs)}</td><td>${f2(r.et)}</td><td>${f1(r.cum)}</td><td>${r.forecast ? "" : f2(r.pp)}</td></tr>`).join("")}</tbody></table>
+            </div>
+          </details>
+          <button class="btn-secondary" id="csvBtn" style="margin-top:12px;max-width:320px">⤓ Download daily values (CSV)</button>
+        </div>
+      </div>
+
+      ${S.missingEt || S.missingT ? `<div class="info-callout warn-callout"><strong>Data gaps:</strong> ${S.missingEt ? `${S.missingEt} day(s) had no reference ET at this station and count as zero.` : ""} ${S.missingT ? `${S.missingT} day(s) were missing temperature; the previous day's degree days were carried forward.` : ""}</div>` : ""}
+      <div class="info-callout"><strong>How it's calculated:</strong> crop ET = Kc × the station's alfalfa reference ET (ETrs). Kc comes from ${method === "gdd" ? "growing degree days (°F, base 32, cap 86) accumulated from emergence with station temperatures" : "the number of days since emergence"}, using curves measured with flux towers at Declo, Idaho. <a href="#guide" style="color:var(--gold-deep);font-weight:700">About these numbers ›</a></div>
+      <div class="info-callout"><strong>Treat these as a guide.</strong> A weather station's reference ET can differ from your field's. At Malta, the station ran 16–22% higher (2025–2026) than the reference ET we measured inside the irrigated field, so these totals may run high.</div>
+
+      <div class="action-row">
+        ${field.id ? `<button class="btn-secondary" id="editBtn">✎ Edit field</button>` : `<button class="btn-primary" id="saveViewBtn">★ Save this field <span class="g">›</span></button>`}
+        <button class="btn-secondary" id="refreshBtn">↻ Refresh data</button>
+        <button class="btn-secondary" id="otherBtn">+ Another field</button>
+      </div>
+    </div>`;
+
+  app.querySelectorAll("[data-m]").forEach(b => b.addEventListener("click", () => { setMethod(b.dataset.m); drawDashboard(); }));
+  if (field.id) document.getElementById("editBtn").addEventListener("click", () => go("edit", field.id));
+  else document.getElementById("saveViewBtn").addEventListener("click", () => {
+    const fields = getFields(), id = Date.now().toString(36);
+    fields.unshift({ id, code: field.code, emergence: field.emergence, name: "" }); setFields(fields); go("field", id);
+  });
+  document.getElementById("refreshBtn").addEventListener("click", () => { dataCache.clear(); fcCache.clear(); renderDashboard(field); });
+  document.getElementById("otherBtn").addEventListener("click", () => go("stations"));
+  const ss = document.getElementById("seasonSel");
+  if (ss) ss.addEventListener("change", () => {
+    const y = +ss.value;
+    let e = `${y}${field.emergence.slice(4)}`;
+    if (e > today) e = today;
+    go("view", st.code, e);   // unsaved view of that season; "Save this field" keeps it
+  });
+  document.getElementById("csvBtn").addEventListener("click", () => {
+    const head = "date,days_after_emergence,cum_gdd_F,kc,station_etrs_in,crop_et_in,season_total_in,station_rain_in,forecast";
+    const body = S.obs.concat(S.fcst).map(r => [r.date, r.dae, r.cgdd.toFixed(0), r.kc.toFixed(3),
+      r.etrs == null ? "" : r.etrs.toFixed(3), r.et == null ? "" : r.et.toFixed(3), r.cum.toFixed(2),
+      r.forecast || r.pp == null ? "" : r.pp.toFixed(2), r.forecast ? "yes" : "no"].join(","));
+    const meta = `# Spring wheat water use (University of Idaho) - ${st.name} AgriMet ${agrimetId(st.code).toUpperCase()}, emergence ${field.emergence}, Kc by ${method === "gdd" ? "growing degree days" : "days after emergence"}`;
+    const blob = new Blob([[meta, head, ...body].join("\n") + "\n"], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `springwheat_ET_${agrimetId(st.code)}_${field.emergence}_${method}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  const drawCharts = () => {
+    const wOf = (id) => Math.max(300, Math.round(document.getElementById(id).clientWidth || 340));
+    const d = chartDaily(S, wOf("dailyChart"));
+    document.getElementById("dailyChart").innerHTML = d.svg;
+    document.getElementById("kcChart").innerHTML = chartKc(S, wOf("kcChart"));
+    document.getElementById("cumChart").innerHTML = chartCum(S, wOf("cumChart"));
+    const ro = document.getElementById("dailyReadout");
+    const show = (r) => {
+      ro.innerHTML = `${S.complete && r === d.rows[d.hiIdx] ? "Peak day · " : ""}<b>${dowOf(r.date)} ${fmtShort(r.date)}</b>${r.forecast ? " (forecast)" : ""}: crop ET <b>${f2(r.et)} in</b> · ETrs ${f2(r.etrs)} · Kc ${r.kc.toFixed(2)}${r.forecast ? "" : ` · rain ${f2(r.pp)}`}`;
+    };
+    if (d.rows[d.hiIdx]) show(d.rows[d.hiIdx]);
+    document.querySelectorAll("#dailyChart .hit").forEach(el => el.addEventListener("click", () => show(d.rows[+el.dataset.i])));
+  };
+  drawCharts();
+  resizeHook = drawCharts;
+  // ?focus=kc|daily|cum scrolls to a chart (handy for links and screenshots)
+  const focus = new URLSearchParams(location.search).get("focus");
+  const target = { kc: "kcCard", daily: "dailyChart", cum: "cumChart" }[focus];
+  if (target) setTimeout(() => { const el = document.getElementById(target); window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - (target === "kcCard" ? 70 : 140)); }, 50);
+}
+
+// ?demo=1 seeds two example fields when none are saved (demo/screenshots)
+(function seedDemo() {
+  if (!new URLSearchParams(location.search).has("demo") || getFields().length) return;
+  setFields([
+    { id: "demo1", code: "malich", emergence: "2026-03-28", name: "Declo pivot (Malta station)" },
+    { id: "demo2", code: "twfich", emergence: "2025-04-12", name: "Kimberly south 80" },
+  ]);
+})();
+
+// ══ GUIDE ══════════════════════════════════════════════════
+function renderGuide() {
+  const g = KC.gdd, d = KC.dae;
+  const row = (n, p, u) => `<tr><td>${n}</td><td class="n">${p.Kc_ini.toFixed(2)}</td><td class="n">${p.Kc_mid.toFixed(2)}</td><td class="n">${p.Kc_end.toFixed(2)}</td>
+    <td class="n">${Math.round(p.L_ini)} / ${Math.round(p.L_ini + p.L_dev)} / ${Math.round(p.L_ini + p.L_dev + p.L_mid)} / ${Math.round(p.x_end)} ${u}</td></tr>`;
+  document.getElementById("app").innerHTML = `
+    <div class="page-head"><h2>About these numbers<span class="accent-dot">.</span></h2><p>Where the crop coefficients come from, how water use is calculated, and what to watch out for</p></div>
+    <div class="guide-body">
+      <p class="guide-intro">This app estimates how much water an irrigated spring wheat crop uses each day (evapotranspiration, or ET) in inches. It combines weather from an AgriMet station with crop coefficients we measured in a real Idaho spring wheat field.</p>
+
+      <h2>Measured at Declo, Idaho</h2>
+      <p>In 2025 and 2026 we ran eddy-covariance (flux) towers in a commercial, center-pivot irrigated spring wheat field near Declo, Idaho. The towers measure the water vapor leaving the field every half hour, so they record the crop's actual water use through the whole season. Over the measured windows the crop used about <strong>21.2 inches in 2025</strong> and <strong>20.5 inches in 2026</strong>.</p>
+
+      <h2>The crop coefficient (Kc)</h2>
+      <p>Daily crop ET = <strong>Kc × reference ET</strong>. Reference ET is the water a tall, well-watered alfalfa crop would use under the day's weather. Kc scales it to spring wheat at its current growth stage. Our Kc values are on the <strong>ASCE standardized alfalfa reference (ETrs)</strong> basis, the same basis AgriMet uses. Grass-reference (ETo) coefficients are larger and must not be mixed with these.</p>
+      <p>The curve has four stages, as in FAO-56: a flat <strong>initial</strong> stage, a straight-line rise during <strong>development</strong>, a flat <strong>mid-season</strong> peak, and a straight-line decline through the <strong>late season</strong> to maturity.</p>
+      <table class="kc-table"><thead><tr><th>Curve</th><th>Kc ini</th><th>Kc mid</th><th>Kc end</th><th>Stage ends</th></tr></thead>
+        <tbody>${row("Degree days (default)", g, "GDD°F")}${row("Days after emergence", d, "days")}</tbody></table>
+
+      <h2>Why growing degree days?</h2>
+      <p>Wheat develops with heat, not with the calendar. A field that emerges in a cool April moves slowly; a later field in warm weather moves fast. Counting <strong>growing degree days</strong> (°F, base 32 °F, daily mean capped at 86 °F) from emergence lines the two Declo seasons up much better than counting days (R² 0.63 vs 0.12). That is why the degree-day curve is the default: it transfers across planting dates and seasons. The day-count curve is offered only for comparison.</p>
+      <p>The dashboard also shows AgriMet's own spring grain curve (SGRN) as a dashed line. AgriMet runs it on fixed calendar dates (start March 15, full cover June 10, end July 20), regardless of when your crop emerged.</p>
+      <p>Of the mid-season Kc of about 1.07, roughly 0.80 is crop transpiration (the basal Kcb we also measured); the rest is evaporation from wet soil after irrigation and rain.</p>
+
+      <h2>The 7-day forecast (beta)</h2>
+      <p>The forecast takes Open-Meteo's weather forecast for the station location (temperature, humidity, wind and sunshine), computes the standardized alfalfa reference ET with the ASCE-EWRI method, and applies the same Kc curve. Forecast weather is less certain than measured weather, and this method is still being evaluated, so read it as an outlook rather than a number to irrigate to.</p>
+
+      <h2>Limitations</h2>
+      <ul>
+        <li><strong>Station vs. field.</strong> A weather station's reference ET can differ from an irrigated field's. At Malta, the station ran <strong>16–22% higher</strong> (2025–2026) than the reference ET we measured inside the irrigated field. Using Malta's numbers with our curve gives about 27.5 inches for the 2026 season (emergence to maturity), or about 26 inches over the same window the tower measured 20.5 inches. Treat estimates as a guide, and expect them to run high where the station sits in drier surroundings than your field.</li>
+        <li><strong>One site, two seasons.</strong> The curves come from one field at Declo. Varieties, plant populations, irrigation frequency and soils differ across southern Idaho.</li>
+        <li><strong>Emergence date matters.</strong> Degree days are counted from the date you enter. A date off by a week shifts the curve.</li>
+        <li><strong>Well-watered crop.</strong> The numbers assume the crop is not water-stressed. A stressed crop uses less.</li>
+        <li><strong>Rain is for context only.</strong> Station rainfall is shown but not subtracted. Rain at the station may not match rain on your field, and not all of it is useful to the crop.</li>
+        <li><strong>Data gaps.</strong> Days with no reference ET at the station count as zero; the dashboard tells you when that happens.</li>
+      </ul>
+
+      <h2>Using the numbers</h2>
+      <ul>
+        <li><strong>Replace what was used.</strong> Add up crop ET since your last irrigation, subtract effective rain, and adjust for your system's application efficiency.</li>
+        <li><strong>Watch the stage.</strong> Water use peaks in mid-season (heading through early grain fill) and falls quickly as the crop turns. The late-season decline is the time to plan the last irrigation.</li>
+      </ul>
+
+      <h2>Data sources</h2>
+      <ul>
+        <li><a href="https://www.usbr.gov/pn/agrimet/" target="_blank" rel="noopener">USBR AgriMet</a> daily ETrs, air temperature and precipitation.</li>
+        <li><a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> weather forecast (beta outlook).</li>
+      </ul>
+    </div>`;
+}
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>

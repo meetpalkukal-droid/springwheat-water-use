@@ -1,0 +1,14 @@
+{
+  "name": "Southern Idaho Spring Wheat Water Use",
+  "short_name": "Wheat Water Use",
+  "description": "Daily irrigated spring wheat water use (crop ET, inches) for southern Idaho AgriMet stations, from crop coefficients measured at Declo, Idaho — University of Idaho",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0A0A0A",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
