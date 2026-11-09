@@ -44,21 +44,12 @@ they are kept for reference.
 
 ## Model
 
-- GDD (°F) = max(0, min((Tmax+Tmin)/2, 86) − 32). It uses station `mx`/`mn` and accumulates from the
-  emergence day. Forecast days use forecast temperatures.
-- FAO-56 four-stage Kc from `presentation/data/kc_fits.json`:
-  - `fits.CGDD_F.pooled` (default): Kc 0.63 / 1.07 / 0.04, stages end at 312 / 1334 / 1912 / 3118 GDD°F.
-  - `fits.DAE.pooled` (toggle): Kc 0.60 / 0.94 / 0.15, x_end 122 days.
-  - `fits.CGDD_F.Kcb_pooled` appears only in the guide text.
-- The season ends when x reaches x_end (maturity). Totals run from emergence to maturity, or to the
-  latest data day.
-- AgriMet SGRN (21-point table; 03/15, 06/10, 07/20) is drawn as a dashed comparison line. It is not
-  drawn outside its 0–200 % window.
-- Forecast (beta): Open-Meteo daily Tmax, Tmin, mean dew point, 10 m wind (m/s) and Rs (MJ m⁻²) at the
-  station lat/lng. ETrs is the ASCE-EWRI 2005 standardized tall reference (Cn 1600, Cd 0.38), with wind
-  reduced from 10 m to 2 m by the log profile. Rn comes from Rs, Rso and Ra, using the elevation that
-  Open-Meteo returns. When a season is active and the station data are no more than 4 days old, the
-  forecast continues the GDD/Kc series for 7 days.
+Crop ET = Kc x AgriMet station ETRS. Kc is a 21-point probabilistic curve
+(`presentation/scripts/04_kc21_curve.py` in the analysis project): points are equally spaced in
+growing degree days from emergence (Paredes et al. 2025 Eq. 2, Tbase 0 C, Tupper 30 C; full season
+= 1,657 GDD, the mean of Declo 2025 and 2026). Each point is the 10th / 50th / 90th percentile of
+measured daily Kc (tower ET / tower ETrs) within half a segment of it. The app shows the median as
+"typical" and P10-P90 as the "range". No FAO-56 stages and no AgriMet crop curve are used.
 
 ## Stations kept (32, southern Idaho irrigated valleys)
 
