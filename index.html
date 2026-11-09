@@ -1039,7 +1039,7 @@ function drawDashboard() {
   const S = computeSeason(rows, fc, field.emergence, today);
   const L = S.last;
   const title = field.name || `${st.name} spring wheat`;
-  const rng = (lo, hi, d = 2) => `<div class="tot-rng">range ${lo.toFixed(d)}–${hi.toFixed(d)}</div>`;
+  const rng = (lo, hi, d = 2) => `<div class="tot-rng">likely ${lo.toFixed(d)}–${hi.toFixed(d)}</div>`;
   const tiles = [
     `<div class="tot-box hl"><div class="tot-lbl">${S.complete ? "Final day" : L && L.date === addDays(today, -1) ? "Yesterday" : "Latest day"}</div>
       <div class="tot-num">${f2(L && L.et)}<span class="unit">in</span></div>${L && L.et != null ? rng(L.etLo, L.etHi) : ""}</div>`,
@@ -1070,7 +1070,7 @@ function drawDashboard() {
             <div class="chart-box" id="dailyChart"></div>
             <div class="chart-legend">
               <div class="legend-item"><span class="legend-dot" style="background:${C.past}"></span>Typical</div>
-              <div class="legend-item"><span class="legend-dot" style="background:${C.band}"></span>Range</div>
+              <div class="legend-item"><span class="legend-dot" style="background:${C.band}"></span>Likely range</div>
               ${S.fcst.length ? `<div class="legend-item"><span class="legend-dot" style="background:${C.greenSoft};border:1.5px dashed var(--green)"></span>Forecast</div>` : ""}
             </div>
           </div>
@@ -1085,7 +1085,7 @@ function drawDashboard() {
             <div class="chart-box" id="kcChart"></div>
             <div class="chart-legend">
               <div class="legend-item"><span class="legend-line"></span>Typical</div>
-              <div class="legend-item"><span class="legend-dot" style="background:${C.band}"></span>Range</div>
+              <div class="legend-item"><span class="legend-dot" style="background:${C.band}"></span>Likely range</div>
               <div class="legend-item"><span class="legend-dot" style="background:var(--gold);border:2px solid var(--ink);border-radius:50%"></span>Your crop</div>
             </div>
           </div>
@@ -1095,7 +1095,7 @@ function drawDashboard() {
       <div class="card table-card">
         <details id="dayTable"><summary>Daily table</summary>
           <div class="tbl-wrap">
-            <table class="day-table"><thead><tr><th>Date</th><th>GDD</th><th>Kc</th><th>Ref. ET</th><th>Crop ET</th><th>Range</th><th>Total</th></tr></thead>
+            <table class="day-table"><thead><tr><th>Date</th><th>GDD</th><th>Kc</th><th>Ref. ET</th><th>Crop ET</th><th>Likely range</th><th>Total</th></tr></thead>
             <tbody>${S.obs.concat(S.fcst).map(r => `<tr${r.forecast ? ' class="fc"' : ""}><td>${fmtMD(r.date)}${r.forecast ? "*" : ""}</td><td>${Math.round(r.cgdd)}</td><td>${r.kc.toFixed(2)}</td><td>${f2(r.etrs)}</td><td><b>${f2(r.et)}</b></td><td>${r.et == null ? "—" : `${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)}`}</td><td>${f1(r.cum)}</td></tr>`).join("")}</tbody></table>
             ${S.fcst.length ? `<p class="tbl-note">* forecast</p>` : ""}
           </div>
@@ -1104,7 +1104,7 @@ function drawDashboard() {
       </div>
 
       ${S.missingEt || S.missingT ? `<div class="info-callout warn-callout">${S.missingEt ? `${S.missingEt} day(s) had no station reference ET and count as zero. ` : ""}${S.missingT ? `${S.missingT} day(s) had no temperature; the previous day's GDD was used.` : ""}</div>` : ""}
-      <div class="info-callout">Crop ET = our Declo Kc × ${esc(st.name)} reference ET. <b>Typical</b> is the median; <b>range</b> is the 10th–90th percentile. <a href="#guide">More ›</a></div>
+      <div class="info-callout"><b>Typical</b> is our best estimate for a spring wheat field. <b>Likely range</b> is where most fields should fall: a thinner stand or dry soil surface uses less, a dense canopy or soil wet from irrigation uses more. <a href="#guide">More ›</a></div>
 
       <div class="action-row">
         ${field.id ? `<button class="btn-secondary" id="editBtn">✎ Edit field</button>` : `<button class="btn-primary" id="saveViewBtn">★ Save this field</button>`}
@@ -1177,7 +1177,8 @@ function renderGuide() {
 
       <h2>The Kc curve</h2>
       <p>Kc follows heat, not the calendar: it is a smooth curve of growing degree days since emergence (°C, base 0, cap 30). A full season is about ${KC.season_gdd.toLocaleString()} GDD.</p>
-      <p><strong>Typical</strong> is the median measured Kc. <strong>Range</strong> is the 10th to 90th percentile. Each is one equation fit to both seasons.</p>
+      <p><strong>Typical</strong> is our best estimate: half the measured days were above it, half below.</p>
+      <p><strong>Likely range</strong> is where most fields should fall on a given day. In our measurements, 8 of every 10 days landed inside it. Fields differ in stand, soil and irrigation, so yours may sit toward the low end or the high end.</p>
       <table class="kc-table"><thead><tr><th>Season</th><th>GDD</th><th>Low</th><th>Typical</th><th>High</th></tr></thead><tbody>${rows}</tbody></table>
 
       <h2>Keep in mind</h2>
@@ -1185,7 +1186,7 @@ function renderGuide() {
         <li><strong>Station vs. field.</strong> Station reference ET can run higher than in an irrigated field (16–22% at Malta), so estimates may run high.</li>
         <li><strong>One field, two seasons.</strong> Varieties, soils and irrigation differ.</li>
         <li><strong>Emergence date matters.</strong> GDD counts from the date you enter.</li>
-        <li><strong>Season range.</strong> The season range adds up each day's low or high, so it is wider than a typical year-to-year spread.</li>
+        <li><strong>Weekly and season ranges.</strong> The low total is a field that runs at the low end every day; the high total, at the high end every day. Most fields land in between.</li>
         <li><strong>Forecast (beta).</strong> Uses Open-Meteo weather; treat it as an outlook.</li>
       </ul>
 
