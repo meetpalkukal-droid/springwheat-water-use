@@ -708,26 +708,46 @@ function chartDaily(S, W) {
   return { svg: s, rows: all, hiIdx };
 }
 
-// The Kc curve (P50 line, P10–P90 band) vs GDD, with the crop's position
+// Date axis: month names on the first row, days after emergence on the second
+function dateAxis(X, d0, d1, y, W, padL, padR) {
+  let s = "", m = `${d0.slice(0, 7)}-01`;
+  while (m <= d1) {
+    if (m >= d0) s += svgText(X(m), y, MON[+m.slice(5, 7) - 1], { "text-anchor": "middle", fill: C.ink2, "font-weight": 700 });
+    const yy = +m.slice(0, 4), mo = +m.slice(5, 7);
+    m = mo === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mo + 1).padStart(2, "0")}-01`;
+  }
+  const span = daysBetween(d0, d1), step = span > 150 ? 60 : 30;
+  for (let k = 0; k <= span; k += step)
+    s += svgText(X(addDays(d0, k)), y + 17, `day ${k}`, { "text-anchor": k === 0 ? "start" : "middle", "font-size": 12 });
+  return s;
+}
+
+// Kc for this field by date (P50 line, P10–P90 band). Kc is computed from GDD; the axis is the calendar.
+// Past and forecast days are solid; the rest of the season (S.proj, last year's weather) is faded.
 function chartKc(S, W) {
-  const H = 250, padL = 40, padR = 14, padT = 18, padB = 44, G = KC.season_gdd, ymax = 1.3;
-  const X = (g) => padL + g / G * (W - padL - padR), Y = (y) => H - padB - y / ymax * (H - padT - padB);
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Crop coefficient curve">`;
+  const H = 260, padL = 40, padR = 14, padT = 18, padB = 54, ymax = 1.3;
+  const act = [...S.obs, ...S.fcst], proj = S.proj || [], all = [...act, ...proj];
+  if (!all.length) return "";
+  const d0 = S.emergence, d1 = all[all.length - 1].date, span = Math.max(1, daysBetween(d0, d1));
+  const X = (d) => padL + daysBetween(d0, d) / span * (W - padL - padR), Y = (y) => H - padB - y / ymax * (H - padT - padB);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Crop coefficient by date">`;
   for (let k = 0; k <= 4; k++) {
     const v = k * 0.3, y = Y(v);
     s += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${k ? C.grid : C.ink2}"/>`;
     s += svgText(padL - 6, y + 4, v.toFixed(1), { "text-anchor": "end" });
   }
-  for (let t = 0; t <= G; t += 500) {
-    s += `<line x1="${X(t)}" x2="${X(t)}" y1="${H - padB}" y2="${H - padB + 4}" stroke="${C.ink2}"/>`;
-    s += svgText(X(t), H - padB + 18, t.toLocaleString(), { "text-anchor": "middle" });
+  s += dateAxis(X, d0, d1, H - padB + 20, W, padL, padR);
+  const line = (rows, a) => `<polyline points="${rows.map(r => `${X(r.date).toFixed(1)},${Y(r.kc).toFixed(1)}`).join(" ")}" fill="none" ${a}/>`;
+  if (proj.length) {
+    const pj = [act[act.length - 1], ...proj].filter(Boolean);
+    s += `<g opacity="0.45">${bandPath(pj.map(r => ({ x: X(r.date), lo: Y(r.lo), hi: Y(r.hi) })))}</g>`;
+    s += line(pj, `stroke="${C.ink3}" stroke-width="2" stroke-dasharray="5 4"`);
+    s += svgText(W - padR, padT - 4, "ahead: last year's weather", { "text-anchor": "end", "font-size": 11, fill: C.ink3 });
   }
-  s += svgText((padL + W - padR) / 2, H - 6, "Growing degree days since emergence (°C)", { "text-anchor": "middle", "font-weight": 700, fill: C.ink2 });
-  const gs = Array.from({ length: Math.floor(G / 10) + 1 }, (_, i) => i * 10).concat([G]);
-  s += bandPath(gs.map(g => ({ x: X(g), lo: Y(kcAt(g, "p10")), hi: Y(kcAt(g, "p90")) })));
-  s += `<polyline points="${gs.map(g => `${X(g).toFixed(1)},${Y(kcAt(g)).toFixed(1)}`).join(" ")}" fill="none" stroke="${C.ink}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  s += bandPath(act.map(r => ({ x: X(r.date), lo: Y(r.lo), hi: Y(r.hi) })));
+  s += line(act, `stroke="${C.ink}" stroke-width="2.5" stroke-linejoin="round"`);
   if (S.last) {
-    const g = Math.min(S.last.cgdd, G), cx = X(g), cy = Y(S.last.kc);
+    const cx = X(S.last.date), cy = Y(S.last.kc);
     s += `<line x1="${cx}" x2="${cx}" y1="${padT}" y2="${H - padB}" stroke="${C.goldDeep}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
     s += `<circle cx="${cx}" cy="${cy}" r="8" fill="${C.gold}" stroke="${C.ink}" stroke-width="2.5"/>`;
   }
@@ -735,9 +755,26 @@ function chartKc(S, W) {
   return s;
 }
 
+// Rest of the season after the last data/forecast day: GDD from the same station's previous year
+// (same calendar day), so the Kc curve can be drawn to harvest. Display only; not used in totals.
+function projectRest(S, prevRows) {
+  const act = [...S.obs, ...S.fcst], last = act[act.length - 1];
+  if (S.complete || !last || last.cgdd >= KC.season_gdd) return [];
+  const byMD = new Map((prevRows || []).filter(r => r.mx != null && r.mn != null).map(r => [r.date.slice(5), gddC(r.mx, r.mn)]));
+  const recent = act.slice(-14), avg = recent.reduce((a, r) => a + r.gdd, 0) / Math.max(1, recent.length);
+  const out = [];
+  let c = last.cgdd, d = last.date;
+  for (let i = 0; i < 200 && c < KC.season_gdd; i++) {
+    d = addDays(d, 1);
+    c += byMD.has(d.slice(5)) ? byMD.get(d.slice(5)) : avg;
+    out.push({ date: d, cgdd: c, lo: kcAt(c, "p10"), kc: kcAt(c), hi: kcAt(c, "p90") });
+  }
+  return out;
+}
+
 // Season cumulative ET by date (P50 line, P10–P90 band)
 function chartCum(S, W) {
-  const H = 230, padL = 40, padR = 56, padT = 16, padB = 32;
+  const H = 250, padL = 40, padR = 56, padT = 16, padB = 50;
   const all = [...S.obs, ...S.fcst];
   if (!all.length) return "";
   const d0 = S.emergence, d1 = all[all.length - 1].date, span = Math.max(1, daysBetween(d0, d1));
@@ -750,12 +787,7 @@ function chartCum(S, W) {
     s += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${k ? C.grid : C.ink2}"/>`;
     s += svgText(padL - 6, y + 4, (+v.toFixed(1)).toString(), { "text-anchor": "end" });
   }
-  let m = `${d0.slice(0, 7)}-01`;
-  while (m <= d1) {
-    if (m >= d0) s += svgText(X(m), H - padB + 20, MON[+m.slice(5, 7) - 1], { "text-anchor": "middle" });
-    const y = +m.slice(0, 4), mo = +m.slice(5, 7);
-    m = mo === 12 ? `${y + 1}-01-01` : `${y}-${String(mo + 1).padStart(2, "0")}-01`;
-  }
+  s += dateAxis(X, d0, d1, H - padB + 20, W, padL, padR);
   s += bandPath(all.map(r => ({ x: X(r.date), lo: Y(r.cumLo), hi: Y(r.cumHi) })));
   const op = S.obs.map(r => `${X(r.date).toFixed(1)},${Y(r.cum).toFixed(1)}`);
   if (op.length) s += `<polyline points="${op.join(" ")}" fill="none" stroke="${C.goldDeep}" stroke-width="3" stroke-linejoin="round"/>`;
@@ -1018,13 +1050,14 @@ async function renderDashboard(field) {
   const end = [addDays(field.emergence, 210), today].sort()[0];
   const recent = daysBetween(end, today) <= 10;   // past seasons need no forecast
   try {
-    const [rows, fc, years] = await Promise.all([
+    const [rows, fc, years, prevRows] = await Promise.all([
       fetchDaily(st.code, field.emergence, end),
       recent ? fetchForecast(st).catch(e => { console.warn("forecast unavailable", e); return null; }) : null,
       stationYears(st.code).catch(() => []),
+      recent ? fetchYear(agrimetId(st.code), +field.emergence.slice(0, 4) - 1).catch(() => []) : [],
     ]);
     if (!rows.some(r => r.etrs != null)) throw new Error("No reference ET reported for this station and season yet.");
-    dash = { field, st, rows, fc, today, years };
+    dash = { field, st, rows, fc, today, years, prevRows };
     drawDashboard();
   } catch (err) {
     console.error(err);
@@ -1035,8 +1068,9 @@ async function renderDashboard(field) {
 }
 
 function drawDashboard() {
-  const { field, st, rows, fc, today, years } = dash;
+  const { field, st, rows, fc, today, years, prevRows } = dash;
   const S = computeSeason(rows, fc, field.emergence, today);
+  S.proj = projectRest(S, prevRows);
   const L = S.last;
   const title = field.name || `${st.name} spring wheat`;
   const rng = (lo, hi, d = 2) => `<div class="tot-rng">likely ${lo.toFixed(d)}–${hi.toFixed(d)}</div>`;
@@ -1058,7 +1092,7 @@ function drawDashboard() {
     </div>
     <div class="detail-body">
       <div class="stage-strip"><span class="stage-pill ${S.complete ? "done" : ""}">${S.stage}</span>
-        <span class="kv"><b>${L ? Math.round(Math.min(L.cgdd, KC.season_gdd)).toLocaleString() : "—"}</b> of ${KC.season_gdd.toLocaleString()} GDD</span></div>
+        <span class="kv">Day <b>${L ? L.dae : "—"}</b> after emergence</span></div>
 
       <div class="totals-grid n${tiles.length}">${tiles.join("")}</div>
 
@@ -1095,15 +1129,15 @@ function drawDashboard() {
       <div class="card table-card">
         <details id="dayTable"><summary>Daily table</summary>
           <div class="tbl-wrap">
-            <table class="day-table"><thead><tr><th>Date</th><th>GDD</th><th>Kc</th><th>Ref. ET</th><th>Crop ET</th><th>Likely range</th><th>Total</th></tr></thead>
-            <tbody>${S.obs.concat(S.fcst).map(r => `<tr${r.forecast ? ' class="fc"' : ""}><td>${fmtMD(r.date)}${r.forecast ? "*" : ""}</td><td>${Math.round(r.cgdd)}</td><td>${r.kc.toFixed(2)}</td><td>${f2(r.etrs)}</td><td><b>${f2(r.et)}</b></td><td>${r.et == null ? "—" : `${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)}`}</td><td>${f1(r.cum)}</td></tr>`).join("")}</tbody></table>
+            <table class="day-table"><thead><tr><th>Date</th><th>Day</th><th>Kc</th><th>Ref. ET</th><th>Crop ET</th><th>Likely range</th><th>Total</th></tr></thead>
+            <tbody>${S.obs.concat(S.fcst).map(r => `<tr${r.forecast ? ' class="fc"' : ""}><td>${fmtMD(r.date)}${r.forecast ? "*" : ""}</td><td>${r.dae}</td><td>${r.kc.toFixed(2)}</td><td>${f2(r.etrs)}</td><td><b>${f2(r.et)}</b></td><td>${r.et == null ? "—" : `${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)}`}</td><td>${f1(r.cum)}</td></tr>`).join("")}</tbody></table>
             ${S.fcst.length ? `<p class="tbl-note">* forecast</p>` : ""}
           </div>
         </details>
         <button class="btn-secondary" id="csvBtn">⤓ Download CSV</button>
       </div>
 
-      ${S.missingEt || S.missingT ? `<div class="info-callout warn-callout">${S.missingEt ? `${S.missingEt} day(s) had no station reference ET and count as zero. ` : ""}${S.missingT ? `${S.missingT} day(s) had no temperature; the previous day's GDD was used.` : ""}</div>` : ""}
+      ${S.missingEt || S.missingT ? `<div class="info-callout warn-callout">${S.missingEt ? `${S.missingEt} day(s) had no station reference ET and count as zero. ` : ""}${S.missingT ? `${S.missingT} day(s) had no temperature; the previous day's heat units were used.` : ""}</div>` : ""}
       <div class="info-callout"><b>Typical</b> is our best estimate for a spring wheat field. <b>Likely range</b> is where most fields should fall: a thinner stand or dry soil surface uses less, a dense canopy or soil wet from irrigation uses more. <a href="#guide">More ›</a></div>
 
       <div class="action-row">
@@ -1146,7 +1180,7 @@ function drawDashboard() {
     document.getElementById("cumChart").innerHTML = chartCum(S, wOf("cumChart"));
     const ro = document.getElementById("dailyReadout");
     const show = (r) => {
-      ro.innerHTML = `<b>${dowOf(r.date)} ${fmtShort(r.date)}</b>${r.forecast ? " (forecast)" : ""}: <b>${f2(r.et)} in</b>${r.et != null ? ` <span class="ro-rng">(${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)})</span>` : ""}`;
+      ro.innerHTML = `<b>${dowOf(r.date)} ${fmtShort(r.date)}</b> <span class="ro-rng">day ${r.dae}</span>${r.forecast ? " (forecast)" : ""}: <b>${f2(r.et)} in</b>${r.et != null ? ` <span class="ro-rng">(${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)})</span>` : ""}`;
     };
     if (d.rows[d.hiIdx]) show(d.rows[d.hiIdx]);
     document.querySelectorAll("#dailyChart .hit").forEach(el => el.addEventListener("click", () => show(d.rows[+el.dataset.i])));
@@ -1168,7 +1202,7 @@ function drawDashboard() {
 function renderGuide() {
   const pct = [0, 25, 50, 75, 100];
   const rows = pct.map(p => { const g = KC.season_gdd * p / 100;
-    return `<tr><td>${p}%</td><td class="n">${Math.round(g).toLocaleString()}</td><td class="n">${kcAt(g, "p10").toFixed(2)}</td><td class="n"><b>${kcAt(g).toFixed(2)}</b></td><td class="n">${kcAt(g, "p90").toFixed(2)}</td></tr>`; }).join("");
+    return `<tr><td>${p === 0 ? "Emergence" : p === 100 ? "Harvest" : `${p}% of season`}</td><td class="n">${kcAt(g, "p10").toFixed(2)}</td><td class="n"><b>${kcAt(g).toFixed(2)}</b></td><td class="n">${kcAt(g, "p90").toFixed(2)}</td></tr>`; }).join("");
   document.getElementById("app").innerHTML = `
     <div class="page-head"><h2>About the numbers<span class="accent-dot">.</span></h2></div>
     <div class="guide-body">
@@ -1176,10 +1210,10 @@ function renderGuide() {
       <p><strong>Crop ET = Kc × reference ET.</strong> Reference ET comes from your AgriMet station. Kc comes from flux towers in an irrigated spring wheat field at Declo, Idaho (2025 and 2026).</p>
 
       <h2>The Kc curve</h2>
-      <p>Kc follows heat, not the calendar: it is a smooth curve of growing degree days since emergence (°C, base 0, cap 30). A full season is about ${KC.season_gdd.toLocaleString()} GDD.</p>
+      <p>The crop develops with heat, not the calendar. Behind the scenes, the tool counts heat units (growing degree days) from your emergence date using your station's temperatures, and reads Kc from that. The charts show it by date, so a warm spring moves the curve earlier and a cool one moves it later.</p>
       <p><strong>Typical</strong> is our best estimate: half the measured days were above it, half below.</p>
       <p><strong>Likely range</strong> is where most fields should fall on a given day. In our measurements, 8 of every 10 days landed inside it. Fields differ in stand, soil and irrigation, so yours may sit toward the low end or the high end.</p>
-      <table class="kc-table"><thead><tr><th>Season</th><th>GDD</th><th>Low</th><th>Typical</th><th>High</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="kc-table"><thead><tr><th>Season</th><th>Low</th><th>Typical</th><th>High</th></tr></thead><tbody>${rows}</tbody></table>
 
       <h2>Keep in mind</h2>
       <ul>
