@@ -49,10 +49,10 @@ days since emergence (`presentation/scripts/08_kc_dlog.py` in the analysis proje
 
     Kc = Kini + (Kmax-Kini)/(1+exp(-(x-x1)/s1)) - (Kmax-Kend)/(1+exp(-(x-x2)/s2))
 
-x = cumulative GDD (Paredes et al. 2025 Eq. 2, Tbase 0 C, Tupper 30 C). The 10th, 50th and 90th
+x = cumulative GDD (Paredes et al. 2025 Eq. 2, Tbase 0 C, Tupper 30 C). The 25th, 50th and 75th
 percentile curves are each fit by quantile regression to measured daily Kc (tower ET / tower ETrs),
 Declo 2025 and 2026 pooled. The season ends at 1,657 GDD (mean harvest of the two years). The app
-shows the median as "typical" and P10-P90 as the "likely range". No FAO-56 stages and no AgriMet crop
+shows the median as "typical" and P25-P75 as the "likely range". No FAO-56 stages and no AgriMet crop
 curve are used.
 
 ## Stations kept (32, southern Idaho irrigated valleys)

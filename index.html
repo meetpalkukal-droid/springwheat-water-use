@@ -500,14 +500,14 @@ const stationByCode = (code) => STATIONS.find(s => s.code === code);
 // ══ CROP COEFFICIENTS (ETrs / alfalfa basis) ═══════════════
 // Probabilistic Kc curve from presentation/scripts/08_kc_dlog.py (kcdlog.json).
 // Declo, ID eddy covariance 2025 + 2026, both years pooled. Double logistic in growing degree
-// days since emergence, fit separately to the 10th / 50th / 90th percentile of daily Kc
+// days since emergence, fit separately to the 25th / 50th / 75th percentile of daily Kc
 // (quantile regression):
 //   Kc = Kini + (Kmax-Kini)/(1+exp(-(x-x1)/s1)) - (Kmax-Kend)/(1+exp(-(x-x2)/s2))
 const KC = /*KC_PARAMS*/{
   season_gdd: 1657,   // GDD (°C) emergence -> harvest, mean of 2025 (1689) and 2026 (1625)
-  p10: { Kini: 0.183, Kmax: 0.884, Kend: 0.0, x1: 255.1, s1: 76.9, x2: 1375.2, s2: 73.0 },
+  p25: { Kini: 0.23, Kmax: 0.951, Kend: 0.03, x1: 256.5, s1: 88.4, x2: 1374.5, s2: 63.1 },
   p50: { Kini: 0.529, Kmax: 1.054, Kend: 0.054, x1: 338.1, s1: 95.4, x2: 1367.5, s2: 59.8 },
-  p90: { Kini: 0.819, Kmax: 1.272, Kend: 0.14, x1: 480.1, s1: 175.0, x2: 1359.3, s2: 100.3 },
+  p75: { Kini: 0.714, Kmax: 1.148, Kend: 0.147, x1: 398.2, s1: 112.7, x2: 1364.9, s2: 79.7 },
 }/*END_KC_PARAMS*/;
 function kcAt(gdd, q = "p50") {
   const p = KC[q], x = Math.min(Math.max(gdd, 0), KC.season_gdd);
@@ -603,10 +603,10 @@ async function fetchForecast(st) {
 }
 
 // ══ SEASON MODEL ═══════════════════════════════════════════
-// rows: station daily rows starting at emergence. Crop ET = Kc (P10/P50/P90) × station ETrs.
+// rows: station daily rows starting at emergence. Crop ET = Kc (P25/P50/P75) × station ETrs.
 function dayRow(date, emergence, etrs, g, cg) {
   const frac = cg / KC.season_gdd;
-  const k = { lo: kcAt(cg, "p10"), kc: kcAt(cg, "p50"), hi: kcAt(cg, "p90") };
+  const k = { lo: kcAt(cg, "p25"), kc: kcAt(cg, "p50"), hi: kcAt(cg, "p75") };
   return { date, etrs, gdd: g, cgdd: cg, frac, dae: daysBetween(emergence, date), ...k,
     et: etrs != null ? k.kc * etrs : null, etLo: etrs != null ? k.lo * etrs : null, etHi: etrs != null ? k.hi * etrs : null };
 }
@@ -677,7 +677,7 @@ function bandPath(pts) {   // pts: [{x, lo, hi}] in pixels
   return `<polygon points="${up.concat(dn).join(" ")}" fill="${C.band}"/>`;
 }
 
-// Daily bars (P50) with the P10–P90 range as a shaded band
+// Daily bars (P50) with the P25–P75 range as a shaded band
 function chartDaily(S, W) {
   const whole = S.complete;
   const past = whole ? S.obs : S.obs.slice(-14), fc = S.fcst.slice(0, 7), all = [...past, ...fc];
@@ -762,7 +762,7 @@ function dateAxis(X, d0, d1, y, W, padL, padR) {
   return s;
 }
 
-// Kc for this field by date (P50 line, P10–P90 band). Kc is computed from GDD; the axis is the calendar.
+// Kc for this field by date (P50 line, P25–P75 band). Kc is computed from GDD; the axis is the calendar.
 // Past and forecast days are solid; the rest of the season (S.proj, last year's weather) is faded.
 function chartKc(S, W) {
   const H = 260, padL = 40, padR = 14, padT = 18, padB = 54, ymax = 1.3;
@@ -809,12 +809,12 @@ function projectRest(S, prevRows) {
   for (let i = 0; i < 200 && c < KC.season_gdd; i++) {
     d = addDays(d, 1);
     c += byMD.has(d.slice(5)) ? byMD.get(d.slice(5)) : avg;
-    out.push({ date: d, cgdd: c, lo: kcAt(c, "p10"), kc: kcAt(c), hi: kcAt(c, "p90") });
+    out.push({ date: d, cgdd: c, lo: kcAt(c, "p25"), kc: kcAt(c), hi: kcAt(c, "p75") });
   }
   return out;
 }
 
-// Season cumulative ET by date (P50 line, P10–P90 band)
+// Season cumulative ET by date (P50 line, P25–P75 band)
 function chartCum(S, W) {
   const H = 250, padL = 40, padR = 56, padT = 16, padB = 50;
   const all = [...S.obs, ...S.fcst];
@@ -1217,11 +1217,11 @@ function drawDashboard() {
     } else go("view", st.code, e);
   });
   document.getElementById("csvBtn").addEventListener("click", () => {
-    const head = "date,days_after_emergence,cum_gdd_C,season_pct,kc_p10,kc_p50,kc_p90,station_etrs_in,crop_et_p10_in,crop_et_p50_in,crop_et_p90_in,season_total_p50_in,station_rain_in,forecast";
+    const head = "date,days_after_emergence,cum_gdd_C,season_pct,kc_p25,kc_p50,kc_p75,station_etrs_in,crop_et_p25_in,crop_et_p50_in,crop_et_p75_in,season_total_p50_in,station_rain_in,forecast";
     const n3 = (v) => v == null ? "" : v.toFixed(3);
     const body = S.obs.concat(S.fcst).map(r => [r.date, r.dae, r.cgdd.toFixed(1), (r.frac * 100).toFixed(1), n3(r.lo), n3(r.kc), n3(r.hi),
       n3(r.etrs), n3(r.etLo), n3(r.et), n3(r.etHi), r.cum.toFixed(2), r.forecast || r.pp == null ? "" : r.pp.toFixed(2), r.forecast ? "yes" : "no"].join(","));
-    const meta = `# Spring wheat water use (University of Idaho) - ${st.name} AgriMet ${agrimetId(st.code).toUpperCase()}, emergence ${field.emergence}. Kc: Declo double-logistic curve vs GDD (P10/P50/P90), GDD base 0 C cap 30 C.`;
+    const meta = `# Spring wheat water use (University of Idaho) - ${st.name} AgriMet ${agrimetId(st.code).toUpperCase()}, emergence ${field.emergence}. Kc: Declo double-logistic curve vs GDD (P25/P50/P75), GDD base 0 C cap 30 C.`;
     const blob = new Blob([[meta, head, ...body].join("\n") + "\n"], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -1262,7 +1262,7 @@ function drawDashboard() {
 function renderGuide() {
   const pct = [0, 25, 50, 75, 100];
   const rows = pct.map(p => { const g = KC.season_gdd * p / 100;
-    return `<tr><td>${p === 0 ? "Emergence" : p === 100 ? "Harvest" : `${p}% of season`}</td><td class="n">${kcAt(g, "p10").toFixed(2)}</td><td class="n"><b>${kcAt(g).toFixed(2)}</b></td><td class="n">${kcAt(g, "p90").toFixed(2)}</td></tr>`; }).join("");
+    return `<tr><td>${p === 0 ? "Emergence" : p === 100 ? "Harvest" : `${p}% of season`}</td><td class="n">${kcAt(g, "p25").toFixed(2)}</td><td class="n"><b>${kcAt(g).toFixed(2)}</b></td><td class="n">${kcAt(g, "p75").toFixed(2)}</td></tr>`; }).join("");
   document.getElementById("app").innerHTML = `
     <div class="page-head"><h2>About the numbers<span class="accent-dot">.</span></h2></div>
     <div class="guide-body">
@@ -1272,7 +1272,7 @@ function renderGuide() {
       <h2>The Kc curve</h2>
       <p>The crop develops with heat, not the calendar. Behind the scenes, the tool counts heat units (growing degree days) from your emergence date using your station's temperatures, and reads Kc from that. The charts show it by date, so a warm spring moves the curve earlier and a cool one moves it later.</p>
       <p><strong>Typical</strong> is our best estimate: half the measured days were above it, half below.</p>
-      <p><strong>Likely range</strong> is where most fields should fall on a given day. In our measurements, 8 of every 10 days landed inside it. Fields differ in stand, soil and irrigation, so yours may sit toward the low end or the high end.</p>
+      <p><strong>Likely range</strong> is where most fields should fall on a given day. In our measurements, half of the days landed inside it: a quarter above, a quarter below. Fields differ in stand, soil and irrigation, so yours may sit toward the low end or the high end.</p>
       <table class="kc-table"><thead><tr><th>Season</th><th>Low</th><th>Typical</th><th>High</th></tr></thead><tbody>${rows}</tbody></table>
 
       <h2>Keep in mind</h2>
