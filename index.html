@@ -490,25 +490,29 @@ const agrimetId = (code) => code.replace(/ch$/, "");   // malich -> mali
 const stationByCode = (code) => STATIONS.find(s => s.code === code);
 
 // ══ CROP COEFFICIENTS (ETrs / alfalfa basis) ═══════════════
-// 21-point probabilistic curve from presentation/scripts/04_kc21_curve.py (kc21.json).
-// Declo, ID eddy covariance 2025 + 2026. Points are equally spaced in growing degree days
-// from emergence (0, 5, ..., 100 % of the season). Each point = 10th / 50th / 90th
-// percentile of measured daily Kc within half a segment of it, both years pooled.
-const KC21 = {
-  season_gdd: 1657,   // GDD (°C) from emergence to season end, mean of 2025 (1689) and 2026 (1625)
-  p10: [0.318, 0.169, 0.343, 0.486, 0.676, 0.794, 0.787, 0.912, 0.880, 0.951, 1.019, 0.868, 0.940, 0.948, 0.878, 0.724, 0.529, 0.223, 0.101, 0.051, 0.061],
-  p50: [0.500, 0.568, 0.631, 0.629, 0.867, 0.923, 0.926, 1.017, 1.091, 1.051, 1.080, 0.970, 1.105, 1.082, 0.989, 0.815, 0.678, 0.384, 0.236, 0.077, 0.124],
-  p90: [0.797, 0.873, 0.812, 0.764, 0.972, 0.985, 1.065, 1.088, 1.146, 1.252, 1.221, 1.130, 1.206, 1.163, 1.104, 0.940, 0.826, 0.673, 0.463, 0.261, 0.240],
-};
-function kcAt(frac, q = "p50") {
-  const a = KC21[q], f = Math.min(Math.max(frac, 0), 1) * 20, i = Math.min(19, Math.floor(f)), t = f - i;
-  return a[i] + (a[i + 1] - a[i]) * t;
+// Probabilistic Kc curve from presentation/scripts/08_kc_dlog.py (kcdlog.json).
+// Declo, ID eddy covariance 2025 + 2026, both years pooled. Double logistic in growing degree
+// days since emergence, fit separately to the 10th / 50th / 90th percentile of daily Kc
+// (quantile regression):
+//   Kc = Kini + (Kmax-Kini)/(1+exp(-(x-x1)/s1)) - (Kmax-Kend)/(1+exp(-(x-x2)/s2))
+const KC = /*KC_PARAMS*/{
+  season_gdd: 1657,   // GDD (°C) emergence -> harvest, mean of 2025 (1689) and 2026 (1625)
+  p10: { Kini: 0.183, Kmax: 0.884, Kend: 0.0, x1: 255.1, s1: 76.9, x2: 1375.2, s2: 73.0 },
+  p50: { Kini: 0.529, Kmax: 1.054, Kend: 0.054, x1: 338.1, s1: 95.4, x2: 1367.5, s2: 59.8 },
+  p90: { Kini: 0.819, Kmax: 1.272, Kend: 0.14, x1: 480.1, s1: 175.0, x2: 1359.3, s2: 100.3 },
+}/*END_KC_PARAMS*/;
+function kcAt(gdd, q = "p50") {
+  const p = KC[q], x = Math.min(Math.max(gdd, 0), KC.season_gdd);
+  return Math.max(0, p.Kini + (p.Kmax - p.Kini) / (1 + Math.exp(-(x - p.x1) / p.s1))
+    - (p.Kmax - p.Kend) / (1 + Math.exp(-(x - p.x2) / p.s2)));
 }
-function stageOf(frac) {
-  if (frac >= 1) return "Season complete";
-  if (frac < 0.18) return "Early growth";
-  if (frac < 0.35) return "Rapid growth";
-  if (frac < 0.72) return "Peak water use";
+// Stages from the median curve: green-up midpoint, full canopy, start of dry-down
+function stageOf(gdd) {
+  const p = KC.p50;
+  if (gdd >= KC.season_gdd) return "Season complete";
+  if (gdd < p.x1) return "Early growth";
+  if (gdd < p.x1 + 2 * p.s1) return "Rapid growth";
+  if (gdd < p.x2 - 2 * p.s2) return "Peak water use";
   return "Ripening";
 }
 // GDD, Paredes et al. (2025) Eq. 2: Tbase 0 °C, Tupper 30 °C on the daily mean. Inputs in °F.
@@ -593,8 +597,8 @@ async function fetchForecast(st) {
 // ══ SEASON MODEL ═══════════════════════════════════════════
 // rows: station daily rows starting at emergence. Crop ET = Kc (P10/P50/P90) × station ETrs.
 function dayRow(date, emergence, etrs, g, cg) {
-  const frac = cg / KC21.season_gdd;
-  const k = { lo: kcAt(frac, "p10"), kc: kcAt(frac, "p50"), hi: kcAt(frac, "p90") };
+  const frac = cg / KC.season_gdd;
+  const k = { lo: kcAt(cg, "p10"), kc: kcAt(cg, "p50"), hi: kcAt(cg, "p90") };
   return { date, etrs, gdd: g, cgdd: cg, frac, dae: daysBetween(emergence, date), ...k,
     et: etrs != null ? k.kc * etrs : null, etLo: etrs != null ? k.lo * etrs : null, etHi: etrs != null ? k.hi * etrs : null };
 }
@@ -643,7 +647,7 @@ function computeSeason(rows, fc, emergence, today) {
     season: tot.et, seasonLo: tot.lo, seasonHi: tot.hi,
     last7: sum(w7, "et"), last7Lo: sum(w7, "etLo"), last7Hi: sum(w7, "etHi"),
     next7: fcst.length ? ftot.et : null, next7Lo: ftot.lo, next7Hi: ftot.hi,
-    stage: last ? stageOf(last.frac) : "Not emerged",
+    stage: last ? stageOf(last.cgdd) : "Not emerged",
     missingEt, missingT, fcUsable: !!fcUsable,
   };
 }
@@ -704,9 +708,9 @@ function chartDaily(S, W) {
   return { svg: s, rows: all, hiIdx };
 }
 
-// The 21-point Kc curve (P50 line, P10–P90 band) vs GDD, with the crop's position
+// The Kc curve (P50 line, P10–P90 band) vs GDD, with the crop's position
 function chartKc(S, W) {
-  const H = 250, padL = 40, padR = 14, padT = 18, padB = 44, G = KC21.season_gdd, ymax = 1.3;
+  const H = 250, padL = 40, padR = 14, padT = 18, padB = 44, G = KC.season_gdd, ymax = 1.3;
   const X = (g) => padL + g / G * (W - padL - padR), Y = (y) => H - padB - y / ymax * (H - padT - padB);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Crop coefficient curve">`;
   for (let k = 0; k <= 4; k++) {
@@ -719,10 +723,9 @@ function chartKc(S, W) {
     s += svgText(X(t), H - padB + 18, t.toLocaleString(), { "text-anchor": "middle" });
   }
   s += svgText((padL + W - padR) / 2, H - 6, "Growing degree days since emergence (°C)", { "text-anchor": "middle", "font-weight": 700, fill: C.ink2 });
-  const xs = KC21.p50.map((_, i) => X(G * i / 20));
-  s += bandPath(xs.map((x, i) => ({ x, lo: Y(KC21.p10[i]), hi: Y(KC21.p90[i]) })));
-  s += `<polyline points="${xs.map((x, i) => `${x.toFixed(1)},${Y(KC21.p50[i]).toFixed(1)}`).join(" ")}" fill="none" stroke="${C.ink}" stroke-width="2.5" stroke-linejoin="round"/>`;
-  xs.forEach((x, i) => { s += `<circle cx="${x.toFixed(1)}" cy="${Y(KC21.p50[i]).toFixed(1)}" r="2.6" fill="${C.ink}"/>`; });
+  const gs = Array.from({ length: Math.floor(G / 10) + 1 }, (_, i) => i * 10).concat([G]);
+  s += bandPath(gs.map(g => ({ x: X(g), lo: Y(kcAt(g, "p10")), hi: Y(kcAt(g, "p90")) })));
+  s += `<polyline points="${gs.map(g => `${X(g).toFixed(1)},${Y(kcAt(g)).toFixed(1)}`).join(" ")}" fill="none" stroke="${C.ink}" stroke-width="2.5" stroke-linejoin="round"/>`;
   if (S.last) {
     const g = Math.min(S.last.cgdd, G), cx = X(g), cy = Y(S.last.kc);
     s += `<line x1="${cx}" x2="${cx}" y1="${padT}" y2="${H - padB}" stroke="${C.goldDeep}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
@@ -1055,7 +1058,7 @@ function drawDashboard() {
     </div>
     <div class="detail-body">
       <div class="stage-strip"><span class="stage-pill ${S.complete ? "done" : ""}">${S.stage}</span>
-        <span class="kv"><b>${L ? Math.round(Math.min(L.cgdd, KC21.season_gdd)).toLocaleString() : "—"}</b> of ${KC21.season_gdd.toLocaleString()} GDD</span></div>
+        <span class="kv"><b>${L ? Math.round(Math.min(L.cgdd, KC.season_gdd)).toLocaleString() : "—"}</b> of ${KC.season_gdd.toLocaleString()} GDD</span></div>
 
       <div class="totals-grid n${tiles.length}">${tiles.join("")}</div>
 
@@ -1126,7 +1129,7 @@ function drawDashboard() {
     const n3 = (v) => v == null ? "" : v.toFixed(3);
     const body = S.obs.concat(S.fcst).map(r => [r.date, r.dae, r.cgdd.toFixed(1), (r.frac * 100).toFixed(1), n3(r.lo), n3(r.kc), n3(r.hi),
       n3(r.etrs), n3(r.etLo), n3(r.et), n3(r.etHi), r.cum.toFixed(2), r.forecast || r.pp == null ? "" : r.pp.toFixed(2), r.forecast ? "yes" : "no"].join(","));
-    const meta = `# Spring wheat water use (University of Idaho) - ${st.name} AgriMet ${agrimetId(st.code).toUpperCase()}, emergence ${field.emergence}. Kc: 21-point Declo curve (P10/P50/P90), GDD base 0 C cap 30 C.`;
+    const meta = `# Spring wheat water use (University of Idaho) - ${st.name} AgriMet ${agrimetId(st.code).toUpperCase()}, emergence ${field.emergence}. Kc: Declo double-logistic curve vs GDD (P10/P50/P90), GDD base 0 C cap 30 C.`;
     const blob = new Blob([[meta, head, ...body].join("\n") + "\n"], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -1164,8 +1167,8 @@ function drawDashboard() {
 // ══ GUIDE ══════════════════════════════════════════════════
 function renderGuide() {
   const pct = [0, 25, 50, 75, 100];
-  const rows = pct.map(p => { const i = p / 5;
-    return `<tr><td>${p}%</td><td class="n">${Math.round(KC21.season_gdd * p / 100).toLocaleString()}</td><td class="n">${KC21.p10[i].toFixed(2)}</td><td class="n"><b>${KC21.p50[i].toFixed(2)}</b></td><td class="n">${KC21.p90[i].toFixed(2)}</td></tr>`; }).join("");
+  const rows = pct.map(p => { const g = KC.season_gdd * p / 100;
+    return `<tr><td>${p}%</td><td class="n">${Math.round(g).toLocaleString()}</td><td class="n">${kcAt(g, "p10").toFixed(2)}</td><td class="n"><b>${kcAt(g).toFixed(2)}</b></td><td class="n">${kcAt(g, "p90").toFixed(2)}</td></tr>`; }).join("");
   document.getElementById("app").innerHTML = `
     <div class="page-head"><h2>About the numbers<span class="accent-dot">.</span></h2></div>
     <div class="guide-body">
@@ -1173,8 +1176,8 @@ function renderGuide() {
       <p><strong>Crop ET = Kc × reference ET.</strong> Reference ET comes from your AgriMet station. Kc comes from flux towers in an irrigated spring wheat field at Declo, Idaho (2025 and 2026).</p>
 
       <h2>The Kc curve</h2>
-      <p>The season is split into 20 equal steps of growing degree days (21 points), like AgriMet's 21-point tables but tied to heat, not calendar dates. A full season is about ${KC21.season_gdd.toLocaleString()} GDD (°C, base 0, cap 30) after emergence.</p>
-      <p><strong>Typical</strong> is the median measured Kc at each point. <strong>Range</strong> is the 10th to 90th percentile.</p>
+      <p>Kc follows heat, not the calendar: it is a smooth curve of growing degree days since emergence (°C, base 0, cap 30). A full season is about ${KC.season_gdd.toLocaleString()} GDD.</p>
+      <p><strong>Typical</strong> is the median measured Kc. <strong>Range</strong> is the 10th to 90th percentile. Each is one equation fit to both seasons.</p>
       <table class="kc-table"><thead><tr><th>Season</th><th>GDD</th><th>Low</th><th>Typical</th><th>High</th></tr></thead><tbody>${rows}</tbody></table>
 
       <h2>Keep in mind</h2>

@@ -44,12 +44,16 @@ they are kept for reference.
 
 ## Model
 
-Crop ET = Kc x AgriMet station ETRS. Kc is a 21-point probabilistic curve
-(`presentation/scripts/04_kc21_curve.py` in the analysis project): points are equally spaced in
-growing degree days from emergence (Paredes et al. 2025 Eq. 2, Tbase 0 C, Tupper 30 C; full season
-= 1,657 GDD, the mean of Declo 2025 and 2026). Each point is the 10th / 50th / 90th percentile of
-measured daily Kc (tower ET / tower ETrs) within half a segment of it. The app shows the median as
-"typical" and P10-P90 as the "range". No FAO-56 stages and no AgriMet crop curve are used.
+Crop ET = Kc x AgriMet station ETRS. Kc is a probabilistic double-logistic curve in growing degree
+days since emergence (`presentation/scripts/08_kc_dlog.py` in the analysis project):
+
+    Kc = Kini + (Kmax-Kini)/(1+exp(-(x-x1)/s1)) - (Kmax-Kend)/(1+exp(-(x-x2)/s2))
+
+x = cumulative GDD (Paredes et al. 2025 Eq. 2, Tbase 0 C, Tupper 30 C). The 10th, 50th and 90th
+percentile curves are each fit by quantile regression to measured daily Kc (tower ET / tower ETrs),
+Declo 2025 and 2026 pooled. The season ends at 1,657 GDD (mean harvest of the two years). The app
+shows the median as "typical" and P10-P90 as the "range". No FAO-56 stages and no AgriMet crop
+curve are used.
 
 ## Stations kept (32, southern Idaho irrigated valleys)
 
