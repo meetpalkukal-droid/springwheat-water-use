@@ -235,8 +235,16 @@ main.wide { max-width: 1180px; }
 .card-head h3 { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
 .card-head .csub { font-family: 'Noto Serif', serif; font-size: 12.5px; color: var(--ink3); margin-top: 2px; line-height: 1.4; }
 .card-body { padding: 0 12px 12px; }
-.chart-box { width: 100%; }
-.chart-box svg { display: block; width: 100%; height: auto; font-family: 'Public Sans', sans-serif; }
+.chart-box { width: 100%; position: relative; }
+.chart-box svg { display: block; width: 100%; height: auto; font-family: 'Public Sans', sans-serif; touch-action: pan-y; cursor: crosshair; }
+.tip { position: absolute; display: none; pointer-events: none; z-index: 5; background: var(--ink); color: #fff; font-size: 14px; line-height: 1.35; padding: 7px 10px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
+.tip b { color: var(--gold); }
+.tip .tsub { color: rgba(255,255,255,0.7); font-size: 12.5px; }
+.season-switch input[type=date] { font: inherit; font-weight: 700; background: #fff; color: var(--ink); border: 0; border-radius: 8px; padding: 5px 8px; min-height: 36px; }
+.remain { flex-basis: 100%; display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink2); }
+.remain .bar { flex: 1; max-width: 320px; height: 10px; background: var(--line); border-radius: 6px; overflow: hidden; }
+.remain .bar span { display: block; height: 100%; background: var(--green); border-radius: 6px; }
+.remain b { color: var(--ink); font-weight: 800; }
 .readout { font-size: 13px; color: var(--ink2); min-height: 20px; padding: 2px 4px 6px; font-weight: 600; }
 .readout b { color: var(--ink); }
 .chart-legend { display: flex; gap: 8px 14px; padding: 10px 4px 2px; border-top: 1px solid var(--line); flex-wrap: wrap; }
@@ -690,22 +698,54 @@ function chartDaily(S, W) {
     s += `<line x1="${fx}" x2="${fx}" y1="${padT - 6}" y2="${baseY}" stroke="${C.green}" stroke-dasharray="3 3"/>`;
     s += svgText(fx + 4, padT + 8, "Forecast", { fill: C.green, "font-weight": 800 });
   }
-  let hiIdx = past.length - 1;
-  if (whole) past.forEach((r, i) => { if ((r.et || 0) > (past[hiIdx].et || 0)) hiIdx = i; });
+  const hiIdx = past.length - 1;   // latest observed day (default readout); no peak-day highlight
   const step = n > 14 ? 3 : n > 8 ? 2 : 1;
+  const pts = [];
   all.forEach((r, i) => {
     const cx = padL + slot * i + slot / 2, v = r.et || 0, h = Math.max(r.et != null ? 2 : 0, v / ymax * barH);
     let fill = C.past, extra = "";
     if (r.forecast) { fill = C.greenSoft; extra = ` stroke="${C.green}" stroke-width="1.4" stroke-dasharray="3 2"`; }
-    else if (i === hiIdx) fill = C.gold;
-    s += `<rect class="hit" data-i="${i}" x="${(cx - slot / 2).toFixed(1)}" y="${padT}" width="${slot.toFixed(1)}" height="${(H - padT).toFixed(1)}" fill="transparent"/>`;
+    else if (i === hiIdx && !whole) fill = C.gold;
+    pts.push({ x: cx, y: baseY - h, row: r, html: `${dowOf(r.date)} ${fmtShort(r.date)} <span class="tsub">· day ${r.dae}${r.forecast ? " · forecast" : ""}</span><br><b>${f2(r.et)} in</b>${r.et != null ? ` <span class="tsub">likely ${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)}</span>` : ""}` });
     s += `<rect pointer-events="none" x="${(cx - bw / 2).toFixed(1)}" y="${(baseY - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${fill}"${extra}/>`;
     const showLbl = whole ? r.date.slice(8) === "01" : ((all.length - 1 - i) % step === 0 && Math.abs(i - hiIdx) >= 2) || i === hiIdx;
     if (showLbl) s += svgText(cx, baseY + 17, whole ? MON[+r.date.slice(5, 7) - 1] : fmtMD(r.date),
       { "text-anchor": "middle", fill: i === hiIdx && !whole ? C.ink : C.ink3, "font-weight": i === hiIdx && !whole ? 800 : 400 });
   });
   s += `</svg>`;
-  return { svg: s, rows: all, hiIdx };
+  return { svg: s, rows: all, hiIdx, pts, top: padT - 6, bottom: baseY };
+}
+
+// Hover / touch: vertical guide + tooltip at the nearest point. pts: [{x, y, html}] in SVG units.
+function attachHover(boxId, d, onPick) {
+  const box = document.getElementById(boxId), svg = box && box.querySelector("svg");
+  if (!svg || !d.pts || !d.pts.length) return;
+  const vb = svg.viewBox.baseVal, ns = "http://www.w3.org/2000/svg";
+  const tip = document.createElement("div"); tip.className = "tip"; box.appendChild(tip);
+  const guide = document.createElementNS(ns, "line");
+  Object.entries({ y1: d.top, y2: d.bottom, stroke: C.ink2, "stroke-width": 1.2, "stroke-dasharray": "3 3", visibility: "hidden", "pointer-events": "none" })
+    .forEach(([k, v]) => guide.setAttribute(k, v));
+  const dot = document.createElementNS(ns, "circle");
+  Object.entries({ r: 5, fill: C.gold, stroke: C.ink, "stroke-width": 2, visibility: "hidden", "pointer-events": "none" })
+    .forEach(([k, v]) => dot.setAttribute(k, v));
+  svg.appendChild(guide); svg.appendChild(dot);
+  const pick = (ev) => {
+    const r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) * vb.width / r.width;
+    let p = d.pts[0];
+    for (const q of d.pts) if (Math.abs(q.x - sx) < Math.abs(p.x - sx)) p = q;
+    guide.setAttribute("x1", p.x); guide.setAttribute("x2", p.x); guide.setAttribute("visibility", "visible");
+    if (p.y != null) { dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y); dot.setAttribute("visibility", "visible"); }
+    tip.innerHTML = p.html; tip.style.display = "block";
+    const k = r.width / vb.width, tw = tip.offsetWidth, th = tip.offsetHeight;
+    const px = Math.min(Math.max(p.x * k - tw / 2, 0), r.width - tw);
+    const py = (p.y != null ? p.y : d.top) * k;
+    tip.style.left = `${px}px`;
+    tip.style.top = `${py - th - 12 >= 0 ? py - th - 12 : py + 14}px`;
+    if (onPick) onPick(p);
+  };
+  svg.addEventListener("pointermove", pick);
+  svg.addEventListener("pointerdown", pick);
+  svg.addEventListener("pointerleave", () => { tip.style.display = "none"; guide.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
 }
 
 // Date axis: month names on the first row, days after emergence on the second
@@ -752,7 +792,9 @@ function chartKc(S, W) {
     s += `<circle cx="${cx}" cy="${cy}" r="8" fill="${C.gold}" stroke="${C.ink}" stroke-width="2.5"/>`;
   }
   s += `</svg>`;
-  return s;
+  const pts = all.map(r => ({ x: X(r.date), y: Y(r.kc),
+    html: `${fmtShort(r.date)} <span class="tsub">· day ${daysBetween(d0, r.date)}${r.forecast ? " · forecast" : proj.includes(r) ? " · ahead" : ""}</span><br>Kc <b>${r.kc.toFixed(2)}</b> <span class="tsub">likely ${r.lo.toFixed(2)}–${r.hi.toFixed(2)}</span>` }));
+  return { svg: s, pts, top: padT, bottom: H - padB };
 }
 
 // Rest of the season after the last data/forecast day: GDD from the same station's previous year
@@ -778,7 +820,7 @@ function chartCum(S, W) {
   const all = [...S.obs, ...S.fcst];
   if (!all.length) return "";
   const d0 = S.emergence, d1 = all[all.length - 1].date, span = Math.max(1, daysBetween(d0, d1));
-  const ymax = niceMax(Math.max(1, all[all.length - 1].cumHi));
+  const ymax = niceMax(Math.max(1, all[all.length - 1].cum));
   const X = (d) => padL + daysBetween(d0, d) / span * (W - padL - padR);
   const Y = (v) => H - padB - v / ymax * (H - padT - padB);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Season water use">`;
@@ -788,8 +830,7 @@ function chartCum(S, W) {
     s += svgText(padL - 6, y + 4, (+v.toFixed(1)).toString(), { "text-anchor": "end" });
   }
   s += dateAxis(X, d0, d1, H - padB + 20, W, padL, padR);
-  s += bandPath(all.map(r => ({ x: X(r.date), lo: Y(r.cumLo), hi: Y(r.cumHi) })));
-  const op = S.obs.map(r => `${X(r.date).toFixed(1)},${Y(r.cum).toFixed(1)}`);
+  const op =S.obs.map(r => `${X(r.date).toFixed(1)},${Y(r.cum).toFixed(1)}`);
   if (op.length) s += `<polyline points="${op.join(" ")}" fill="none" stroke="${C.goldDeep}" stroke-width="3" stroke-linejoin="round"/>`;
   if (S.fcst.length && S.last) {
     const fp = [S.last, ...S.fcst].map(r => `${X(r.date).toFixed(1)},${Y(r.cum).toFixed(1)}`);
@@ -801,7 +842,9 @@ function chartCum(S, W) {
     s += svgText(x + 8, y + 5, `${S.last.cum.toFixed(1)} in`, { fill: C.ink, "font-weight": 800, "font-size": 14 });
   }
   s += `</svg>`;
-  return s;
+  const pts = all.map(r => ({ x: X(r.date), y: Y(r.cum),
+    html: `${fmtShort(r.date)} <span class="tsub">· day ${r.dae}${r.forecast ? " · forecast" : ""}</span><br><b>${r.cum.toFixed(1)} in</b> <span class="tsub">since emergence</span>` }));
+  return { svg: s, pts, top: padT, bottom: H - padB };
 }
 
 // ══ ROUTER ═════════════════════════════════════════════════
@@ -1077,22 +1120,28 @@ function drawDashboard() {
   const tiles = [
     `<div class="tot-box hl"><div class="tot-lbl">${S.complete ? "Final day" : L && L.date === addDays(today, -1) ? "Yesterday" : "Latest day"}</div>
       <div class="tot-num">${f2(L && L.et)}<span class="unit">in</span></div>${L && L.et != null ? rng(L.etLo, L.etHi) : ""}</div>`,
-    `<div class="tot-box"><div class="tot-lbl">Last 7 days</div><div class="tot-num">${f2(S.last7)}<span class="unit">in</span></div>${rng(S.last7Lo, S.last7Hi)}</div>`,
-    `<div class="tot-box"><div class="tot-lbl">${S.complete ? "Season total" : "Season so far"}</div><div class="tot-num">${f1(S.season)}<span class="unit">in</span></div>${rng(S.seasonLo, S.seasonHi, 1)}</div>`,
+    `<div class="tot-box"><div class="tot-lbl">Last 7 days</div><div class="tot-num">${f2(S.last7)}<span class="unit">in</span></div></div>`,
+    `<div class="tot-box"><div class="tot-lbl">${S.complete ? "Season total" : "Season so far"}</div><div class="tot-num">${f1(S.season)}<span class="unit">in</span></div></div>`,
   ];
-  if (S.next7 != null) tiles.push(`<div class="tot-box fc"><div class="tot-lbl">Next 7 days <span class="beta">beta</span></div><div class="tot-num">${f2(S.next7)}<span class="unit">in</span></div>${rng(S.next7Lo, S.next7Hi)}</div>`);
+  if (S.next7 != null) tiles.push(`<div class="tot-box fc"><div class="tot-lbl">Next 7 days <span class="beta">beta</span></div><div class="tot-num">${f2(S.next7)}<span class="unit">in</span></div></div>`);
+  const remain = L ? Math.max(0, 1 - L.cgdd / KC.season_gdd) : 1;
   const app = document.getElementById("app");
   app.innerHTML = `
     <div class="station-hero">
       <div class="stag">${S.year} season · ${esc(st.name)} station</div>
       <h1>${esc(title)}</h1>
       <div class="date-badge">Emerged <strong>${fmtLong(field.emergence)}</strong> · ${S.complete ? "Season ended" : "Data through"} <strong>${L ? fmtLong(L.date) : "—"}</strong></div>
-      ${years && years.length > 1 ? `<div class="season-switch"><label for="seasonSel">Try another year:</label>
-        <select id="seasonSel">${years.map(y => `<option value="${y}" ${y === S.year ? "selected" : ""}>${y}</option>`).join("")}</select></div>` : ""}
+      <div class="season-switch">
+        ${years && years.length > 1 ? `<label for="seasonSel">Try another year:</label>
+        <select id="seasonSel">${years.map(y => `<option value="${y}" ${y === S.year ? "selected" : ""}>${y}</option>`).join("")}</select>` : ""}
+        <label for="emergeIn">Emergence:</label>
+        <input type="date" id="emergeIn" value="${field.emergence}" max="${today}"></div>
     </div>
     <div class="detail-body">
       <div class="stage-strip"><span class="stage-pill ${S.complete ? "done" : ""}">${S.stage}</span>
-        <span class="kv">Day <b>${L ? L.dae : "—"}</b> after emergence</span></div>
+        <span class="kv">Day <b>${L ? L.dae : "—"}</b> after emergence</span>
+        <div class="remain"><span><b>${Math.round(remain * 100)}%</b> of crop season remaining</span>
+          <div class="bar" role="img" aria-label="${Math.round((1 - remain) * 100)}% of season complete"><span style="width:${((1 - remain) * 100).toFixed(1)}%"></span></div></div></div>
 
       <div class="totals-grid n${tiles.length}">${tiles.join("")}</div>
 
@@ -1158,6 +1207,15 @@ function drawDashboard() {
     if (e > today) e = today;
     go("view", st.code, e);
   });
+  const ei = document.getElementById("emergeIn");
+  ei.addEventListener("change", () => {
+    const e = ei.value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e) || e > today || e === field.emergence) return;
+    if (field.id) {   // saved field: update its emergence date in place
+      setFields(getFields().map(f => f.id === field.id ? { ...f, emergence: e } : f));
+      renderDashboard({ ...field, emergence: e });
+    } else go("view", st.code, e);
+  });
   document.getElementById("csvBtn").addEventListener("click", () => {
     const head = "date,days_after_emergence,cum_gdd_C,season_pct,kc_p10,kc_p50,kc_p90,station_etrs_in,crop_et_p10_in,crop_et_p50_in,crop_et_p90_in,season_total_p50_in,station_rain_in,forecast";
     const n3 = (v) => v == null ? "" : v.toFixed(3);
@@ -1174,16 +1232,18 @@ function drawDashboard() {
 
   const drawCharts = () => {
     const wOf = (id) => Math.max(300, Math.round(document.getElementById(id).clientWidth || 340));
-    const d = chartDaily(S, wOf("dailyChart"));
+    const d = chartDaily(S, wOf("dailyChart")), k = chartKc(S, wOf("kcChart")), c = chartCum(S, wOf("cumChart"));
     document.getElementById("dailyChart").innerHTML = d.svg;
-    document.getElementById("kcChart").innerHTML = chartKc(S, wOf("kcChart"));
-    document.getElementById("cumChart").innerHTML = chartCum(S, wOf("cumChart"));
+    document.getElementById("kcChart").innerHTML = k.svg || "";
+    document.getElementById("cumChart").innerHTML = c.svg || "";
     const ro = document.getElementById("dailyReadout");
     const show = (r) => {
-      ro.innerHTML = `<b>${dowOf(r.date)} ${fmtShort(r.date)}</b> <span class="ro-rng">day ${r.dae}</span>${r.forecast ? " (forecast)" : ""}: <b>${f2(r.et)} in</b>${r.et != null ? ` <span class="ro-rng">(${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)})</span>` : ""}`;
+      ro.innerHTML = `<b>${dowOf(r.date)} ${fmtShort(r.date)}</b> <span class="ro-rng">day ${r.dae}</span>${r.forecast ? " (forecast)" : ""}: <b>${f2(r.et)} in</b>${r.et != null ? ` <span class="ro-rng">(likely ${r.etLo.toFixed(2)}–${r.etHi.toFixed(2)})</span>` : ""}`;
     };
     if (d.rows[d.hiIdx]) show(d.rows[d.hiIdx]);
-    document.querySelectorAll("#dailyChart .hit").forEach(el => el.addEventListener("click", () => show(d.rows[+el.dataset.i])));
+    attachHover("dailyChart", d, (p) => show(p.row));
+    attachHover("kcChart", k);
+    attachHover("cumChart", c);
   };
   drawCharts();
   resizeHook = drawCharts;
@@ -1220,7 +1280,8 @@ function renderGuide() {
         <li><strong>Station vs. field.</strong> Station reference ET can run higher than in an irrigated field (16–22% at Malta), so estimates may run high.</li>
         <li><strong>One field, two seasons.</strong> Varieties, soils and irrigation differ.</li>
         <li><strong>Emergence date matters.</strong> GDD counts from the date you enter.</li>
-        <li><strong>Weekly and season ranges.</strong> The low total is a field that runs at the low end every day; the high total, at the high end every day. Most fields land in between.</li>
+        <li><strong>Ranges are for single days.</strong> Weekly and season totals show the typical estimate only; daily ranges don't simply add up.</li>
+        <li><strong>Season remaining</strong> is the share of the crop's heat units still to come, from emergence to a typical harvest.</li>
         <li><strong>Forecast (beta).</strong> Uses Open-Meteo weather; treat it as an outlook.</li>
       </ul>
 
