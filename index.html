@@ -647,7 +647,9 @@ function computeSeason(rows, fc, emergence, today) {
     arr.forEach(r => { s.et += r.et || 0; s.lo += r.etLo || 0; s.hi += r.etHi || 0; r.cum = s.et; r.cumLo = s.lo; r.cumHi = s.hi; });
     return s; };
   const tot = acc(obs, { et: 0, lo: 0, hi: 0 });
-  const ftot = acc(fcst, { et: 0, lo: 0, hi: 0 });
+  // forecast days continue the season running total (r.cum); next 7 days = the forecast part only
+  const ftot = acc(fcst, { ...tot });
+  ftot.et -= tot.et; ftot.lo -= tot.lo; ftot.hi -= tot.hi;
   const sum = (a, k) => a.reduce((s, r) => s + (r[k] || 0), 0);
   const w7 = obs.slice(-7);
   return {

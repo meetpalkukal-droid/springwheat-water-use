@@ -3,7 +3,7 @@
 // data — AgriMet (via the relay or /api/daily) and Open-Meteo always go to
 // the network so water-use numbers are current.
 
-const CACHE_NAME = "sw-wheat-et-shell-v6";
+const CACHE_NAME = "sw-wheat-et-shell-v7";
 const SHELL_FILES = ["./index.html", "./manifest.json", "./icon.png"];
 
 self.addEventListener("install", (event) => {
